@@ -14,6 +14,7 @@ if (keystorePropertiesFile.exists()) {
 android {
     namespace 'com.alphacorp.instaloader'
     compileSdk 35
+    testBuildType 'release'
 
     defaultConfig {
         applicationId "com.alphacorp.instaloader"

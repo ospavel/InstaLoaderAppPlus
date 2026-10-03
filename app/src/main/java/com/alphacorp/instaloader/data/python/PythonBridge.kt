@@ -3,8 +3,10 @@ package com.alphacorp.instaloader.data.python
 import com.alphacorp.instaloader.data.model.DownloadOptions
 import com.alphacorp.instaloader.data.model.DownloadProgress
 import com.alphacorp.instaloader.data.model.DownloadTargetType
+import com.alphacorp.instaloader.data.model.InstagramSession
 import com.chaquo.python.PyObject
 import com.chaquo.python.Python
+import org.json.JSONObject
 
 class PythonBridge {
 
@@ -46,6 +48,16 @@ class PythonBridge {
 
     fun testSession(username: String, sessionDir: String): Boolean {
         return module.callAttr("test_session", username, sessionDir).toBoolean()
+    }
+
+    fun verifyBrowserSession(cookieHeader: String, userAgent: String): InstagramSession {
+        val response = module.callAttr("verify_browser_session", cookieHeader, userAgent).toString()
+        return parseSessionResponse(response, userAgent)
+    }
+
+    fun legacySessionJson(username: String, sessionFile: String): InstagramSession {
+        val response = module.callAttr("legacy_session_json", username, sessionFile).toString()
+        return parseSessionResponse(response, userAgent = "")
     }
 
     fun cancelDownload() {
@@ -125,5 +137,21 @@ class PythonBridge {
             .toTypedArray()
 
         return builtins.callAttr("dict", pairs)
+    }
+
+    private fun parseSessionResponse(response: String, userAgent: String): InstagramSession = try {
+        val envelope = JSONObject(response)
+        val cookies = envelope.getJSONObject("cookies")
+        val username = envelope.getString("username")
+        if (username.isBlank() || cookies.optString("sessionid").isBlank()) {
+            throw IllegalArgumentException("Incomplete session response")
+        }
+        InstagramSession(
+            username = username,
+            cookiesJson = cookies.toString(),
+            userAgent = userAgent,
+        )
+    } catch (_: Exception) {
+        throw IllegalStateException("Instagram returned an incomplete session response. Try signing in again.")
     }
 }
