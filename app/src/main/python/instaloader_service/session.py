@@ -6,9 +6,24 @@ import os
 from typing import Optional
 
 import instaloader
-from instaloader.exceptions import TwoFactorAuthRequiredException
+from instaloader.exceptions import LoginException, TwoFactorAuthRequiredException
 
 _PENDING_LOADER: Optional[instaloader.Instaloader] = None
+
+
+def parse_cookie_header(cookie_header: str) -> dict[str, str]:
+    """Parse Android's CookieManager header without exposing cookie values in errors."""
+    cookies: dict[str, str] = {}
+    for segment in cookie_header.split(";"):
+        name, separator, value = segment.strip().partition("=")
+        name = name.strip()
+        if not separator or not name:
+            continue
+        cookies[name] = value.strip()
+
+    if not cookies.get("sessionid"):
+        raise LoginException("Instagram session cookies are missing or incomplete.")
+    return cookies
 
 
 def _session_path(session_dir: str, username: str) -> str:
