@@ -19,8 +19,7 @@ class PythonBridge {
         targetValue: String,
         options: DownloadOptions,
         baseDir: String,
-        sessionUsername: String?,
-        sessionDir: String?,
+        session: InstagramSession?,
         onProgress: (DownloadProgress) -> Unit,
     ) {
         val callback = onProgress.toPythonCallback()
@@ -28,13 +27,13 @@ class PythonBridge {
             "download_with_options",
             targetType.pythonValue,
             targetValue,
-            options.toPyDict(baseDir, sessionUsername, sessionDir),
+            options.toPyDict(baseDir, session),
             callback,
         )
     }
 
-    fun getPostCount(username: String, sessionUsername: String?, sessionDir: String?): Int {
-        return module.callAttr("get_post_count", username, sessionUsername, sessionDir)
+    fun getPostCount(username: String, options: DownloadOptions, session: InstagramSession?): Int {
+        return module.callAttr("get_post_count", username, options.toPyDict("", session))
             .toInt()
     }
 
@@ -90,8 +89,7 @@ class PythonBridge {
 
     private fun DownloadOptions.toPyDict(
         baseDir: String,
-        sessionUsername: String?,
-        sessionDir: String?,
+        session: InstagramSession?,
     ): PyObject {
         val entries = buildList<Pair<String, Any>> {
             add("quiet" to quiet)
@@ -129,8 +127,11 @@ class PythonBridge {
             add("check_resume_bbd" to checkResumeBbd)
             if (slide.isNotBlank()) add("slide" to slide)
             add("base_dir" to baseDir)
-            sessionUsername?.let { add("session_username" to it) }
-            sessionDir?.let { add("session_dir" to it) }
+            session?.let {
+                add("session_username" to it.username)
+                add("session_cookies_json" to it.cookiesJson)
+                add("session_user_agent" to it.userAgent)
+            }
         }
         val pairs: Array<Array<Any>> = entries
             .map { (key, value) -> arrayOf<Any>(key, value) }

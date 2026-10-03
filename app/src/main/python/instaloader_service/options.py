@@ -53,7 +53,8 @@ def build_instaloader(options: Dict[str, Any]) -> instaloader.Instaloader:
     }
 
     user_agent = _optional_str(options.get("user_agent"))
-    kwargs["user_agent"] = user_agent or DEFAULT_USER_AGENT
+    session_user_agent = _optional_str(options.get("session_user_agent"))
+    kwargs["user_agent"] = user_agent or session_user_agent or DEFAULT_USER_AGENT
 
     dirname_pattern = _optional_str(options.get("dirname_pattern"))
     if dirname_pattern:

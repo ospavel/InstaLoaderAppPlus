@@ -13,6 +13,8 @@ object AppModule {
 
     private var downloadRepository: DownloadRepository? = null
     private var sessionRepository: SessionRepository? = null
+    private var encryptedSessionStore: EncryptedSessionStore? = null
+    private var pythonBridge: PythonBridge? = null
 
     fun downloadRepository(context: Context): DownloadRepository {
         return downloadRepository ?: synchronized(this) {
@@ -35,26 +37,31 @@ object AppModule {
     private fun createDownloadRepository(context: Context): DownloadRepository {
         val optionsStore = OptionsStore(context)
         val downloadLocationStore = DownloadLocationStore(context)
-        val sessionStore = EncryptedSessionStore(context)
-        val pythonBridge = PythonBridge()
         val parseInput = ParseInstagramInputUseCase()
         return DownloadRepository(
             context = context,
-            pythonBridge = pythonBridge,
+            pythonBridge = sharedPythonBridge(),
             optionsStore = optionsStore,
             downloadLocationStore = downloadLocationStore,
-            sessionStore = sessionStore,
+            sessionStore = sharedSessionStore(context),
+            sessionRepository = sessionRepository(context),
             parseInput = parseInput,
         )
     }
 
     private fun createSessionRepository(context: Context): SessionRepository {
-        val sessionStore = EncryptedSessionStore(context)
-        val pythonBridge = PythonBridge()
         return SessionRepository(
             context = context,
-            pythonBridge = pythonBridge,
-            sessionStore = sessionStore,
+            pythonBridge = sharedPythonBridge(),
+            sessionStore = sharedSessionStore(context),
         )
     }
+
+    private fun sharedSessionStore(context: Context): EncryptedSessionStore =
+        encryptedSessionStore ?: EncryptedSessionStore(context).also {
+            encryptedSessionStore = it
+        }
+
+    private fun sharedPythonBridge(): PythonBridge =
+        pythonBridge ?: PythonBridge().also { pythonBridge = it }
 }

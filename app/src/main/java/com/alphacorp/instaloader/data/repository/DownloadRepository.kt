@@ -19,6 +19,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -31,6 +32,7 @@ class DownloadRepository(
     private val optionsStore: OptionsStore,
     private val downloadLocationStore: DownloadLocationStore,
     private val sessionStore: EncryptedSessionStore,
+    private val sessionRepository: SessionRepository,
     private val parseInput: ParseInstagramInputUseCase,
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -103,10 +105,11 @@ class DownloadRepository(
     }
 
     suspend fun getPostCount(username: String): Int = withContext(Dispatchers.IO) {
+        val session = sessionRepository.currentSession(sessionDirectory().absolutePath)
         pythonBridge.getPostCount(
             username = username,
-            sessionUsername = sessionStore.username,
-            sessionDir = sessionStore.sessionDir,
+            options = optionsStore.options.first(),
+            session = session,
         )
     }
 
@@ -125,13 +128,13 @@ class DownloadRepository(
 
         _progress.value = DownloadProgress(phase = "starting", message = "Preparing download")
         try {
+            val session = sessionRepository.currentSession(sessionDirectory().absolutePath)
             pythonBridge.downloadWithOptions(
                 targetType = targetType,
                 targetValue = targetValue,
                 options = options,
                 baseDir = downloadBaseDir().absolutePath,
-                sessionUsername = sessionStore.username,
-                sessionDir = sessionStore.sessionDir,
+                session = session,
                 onProgress = { update ->
                     _progress.value = update
                 },

@@ -37,11 +37,13 @@ def _check_cancelled(callback: Optional[Callable]) -> None:
         raise InterruptedError("Download cancelled")
 
 
-def get_post_count(username: str, session_username: Optional[str], session_dir: Optional[str]) -> int:
-    from instaloader_service.options import DEFAULT_USER_AGENT
-
-    loader = instaloader.Instaloader(quiet=True, user_agent=DEFAULT_USER_AGENT)
-    apply_session(loader, session_username, session_dir)
+def get_post_count(username: str, options: Dict[str, Any]) -> int:
+    loader = build_instaloader(options)
+    apply_session(
+        loader,
+        options.get("session_username"),
+        options.get("session_cookies_json"),
+    )
     profile = fetch_profile(loader, username)
     return profile.mediacount
 
@@ -54,7 +56,11 @@ def download_with_options(
 ) -> None:
     _reset_cancel()
     loader = build_instaloader(options)
-    apply_session(loader, options.get("session_username"), options.get("session_dir"))
+    apply_session(
+        loader,
+        options.get("session_username"),
+        options.get("session_cookies_json"),
+    )
 
     base_dir = options.get("base_dir") or os.path.join(
         os.environ.get("EXTERNAL_STORAGE", "/storage/emulated/0"),
