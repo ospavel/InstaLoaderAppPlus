@@ -12,6 +12,10 @@ from instaloader_service import (
     test_session,
     two_factor_login,
 )
+from instaloader_service.session import (
+    legacy_session_json as _legacy_session_json,
+    verify_browser_session as _verify_browser_session,
+)
 
 
 def _to_python_dict(value: Any) -> Dict[str, Any]:
@@ -44,6 +48,16 @@ def _stringify(value: Any) -> str:
     if value is None:
         return ""
     return str(value)
+
+
+def verify_browser_session(cookie_header: str, user_agent: str) -> str:
+    """Kotlin entry point; cookies stay out of logs and exception text."""
+    return _verify_browser_session(str(cookie_header), str(user_agent))
+
+
+def legacy_session_json(username: str, session_file: str) -> str:
+    """Kotlin entry point to convert a legacy pickle without a network request."""
+    return _legacy_session_json(str(username), str(session_file))
 
 
 def download_with_options(
@@ -82,7 +96,9 @@ __all__ = [
     "cancel_download",
     "download_with_options",
     "get_post_count",
+    "legacy_session_json",
     "login",
     "test_session",
     "two_factor_login",
+    "verify_browser_session",
 ]
