@@ -37,18 +37,6 @@ class PythonBridge {
             .toInt()
     }
 
-    fun login(username: String, password: String, sessionDir: String) {
-        module.callAttr("login", username, password, sessionDir)
-    }
-
-    fun twoFactorLogin(code: String, username: String, sessionDir: String) {
-        module.callAttr("two_factor_login", code, username, sessionDir)
-    }
-
-    fun testSession(username: String, sessionDir: String): Boolean {
-        return module.callAttr("test_session", username, sessionDir).toBoolean()
-    }
-
     fun verifyBrowserSession(cookieHeader: String, userAgent: String): InstagramSession {
         val response = module.callAttr("verify_browser_session", cookieHeader, userAgent).toString()
         return parseSessionResponse(response, userAgent)

@@ -8,9 +8,6 @@ from instaloader_service import (
     cancel_download,
     download_with_options as _download_with_options,
     get_post_count,
-    login,
-    test_session,
-    two_factor_login,
 )
 from instaloader_service.session import (
     legacy_session_json as _legacy_session_json,
@@ -97,8 +94,5 @@ __all__ = [
     "download_with_options",
     "get_post_count",
     "legacy_session_json",
-    "login",
-    "test_session",
-    "two_factor_login",
     "verify_browser_session",
 ]

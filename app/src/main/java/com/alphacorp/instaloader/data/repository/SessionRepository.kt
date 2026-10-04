@@ -2,25 +2,18 @@ package com.alphacorp.instaloader.data.repository
 
 import android.content.Context
 import com.alphacorp.instaloader.data.local.EncryptedSessionStore
-import com.alphacorp.instaloader.data.model.DownloadError
 import com.alphacorp.instaloader.data.model.InstagramSession
-import com.alphacorp.instaloader.data.model.toDownloadError
 import com.alphacorp.instaloader.data.python.PythonBridge
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-class SessionRepository private constructor(
-    private val backend: SessionBackend,
-    private val legacyPythonBridge: PythonBridge?,
-    private val legacySessionStore: EncryptedSessionStore?,
-) {
-    constructor(backend: SessionBackend) : this(backend, null, null)
+class SessionRepository(private val backend: SessionBackend) {
 
     constructor(
         context: Context,
         pythonBridge: PythonBridge,
         sessionStore: EncryptedSessionStore,
-    ) : this(AndroidSessionBackend(context, pythonBridge, sessionStore), pythonBridge, sessionStore)
+    ) : this(AndroidSessionBackend(context, pythonBridge, sessionStore))
 
     val username: String?
         get() = backend.readEncryptedSession()?.username ?: backend.legacyUsername()
@@ -69,34 +62,6 @@ class SessionRepository private constructor(
         }
         backend.deleteLegacySession(legacyFile)
         migrated
-    }
-
-    suspend fun login(username: String, password: String, sessionDir: String) = withContext(Dispatchers.IO) {
-        val pythonBridge = requireNotNull(legacyPythonBridge) { "Password login is unavailable." }
-        val sessionStore = requireNotNull(legacySessionStore) { "Password login is unavailable." }
-        try {
-            pythonBridge.login(username, password, sessionDir)
-            sessionStore.username = username
-        } catch (error: Exception) {
-            if (error.toDownloadError() is DownloadError.TwoFactorRequired) {
-                sessionStore.username = username
-            }
-            throw error
-        }
-    }
-
-    suspend fun submitTwoFactor(code: String, sessionDir: String) = withContext(Dispatchers.IO) {
-        val pythonBridge = requireNotNull(legacyPythonBridge) { "Password login is unavailable." }
-        val sessionStore = requireNotNull(legacySessionStore) { "Password login is unavailable." }
-        val username = sessionStore.username ?: error("No pending login session")
-        pythonBridge.twoFactorLogin(code, username, sessionDir)
-        sessionStore.username = username
-    }
-
-    suspend fun testSession(sessionDir: String): Boolean = withContext(Dispatchers.IO) {
-        val pythonBridge = requireNotNull(legacyPythonBridge) { "Legacy session validation is unavailable." }
-        val username = backend.legacyUsername() ?: return@withContext false
-        pythonBridge.testSession(username, sessionDir)
     }
 
     fun logout() {

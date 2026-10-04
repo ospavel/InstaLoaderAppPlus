@@ -1,9 +1,9 @@
 package com.alphacorp.instaloader.ui.login
 
+import android.webkit.CookieManager
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
-import com.alphacorp.instaloader.data.model.toDownloadError
 import com.alphacorp.instaloader.data.repository.DownloadRepository
 import com.alphacorp.instaloader.data.repository.SessionRepository
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -13,11 +13,9 @@ import kotlinx.coroutines.launch
 
 data class LoginUiState(
     val username: String = "",
-    val password: String = "",
-    val twoFactorCode: String = "",
-    val showTwoFactor: Boolean = false,
     val isLoggedIn: Boolean = false,
-    val isLoading: Boolean = false,
+    val isWebViewOpen: Boolean = false,
+    val isLoading: Boolean = true,
     val errorMessage: String? = null,
     val successMessage: String? = null,
 )
@@ -27,91 +25,67 @@ class LoginViewModel(
     private val downloadRepository: DownloadRepository,
 ) : ViewModel() {
 
-    private val _uiState = MutableStateFlow(
-        LoginUiState(isLoggedIn = sessionRepository.username != null),
-    )
+    private val _uiState = MutableStateFlow(LoginUiState())
     val uiState: StateFlow<LoginUiState> = _uiState.asStateFlow()
 
     init {
-        _uiState.value = _uiState.value.copy(
-            username = sessionRepository.username.orEmpty(),
-            isLoggedIn = sessionRepository.username != null,
-        )
-    }
-
-    fun onUsernameChanged(value: String) {
-        _uiState.value = _uiState.value.copy(username = value, errorMessage = null)
-    }
-
-    fun onPasswordChanged(value: String) {
-        _uiState.value = _uiState.value.copy(password = value, errorMessage = null)
-    }
-
-    fun onTwoFactorChanged(value: String) {
-        _uiState.value = _uiState.value.copy(twoFactorCode = value, errorMessage = null)
-    }
-
-    fun login() {
-        val username = _uiState.value.username.trim()
-        val password = _uiState.value.password
-        if (username.isBlank() || password.isBlank()) {
-            _uiState.value = _uiState.value.copy(errorMessage = "Enter username and password.")
-            return
-        }
-
         viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isLoading = true, errorMessage = null)
             runCatching {
-                sessionRepository.login(
-                    username = username,
-                    password = password,
-                    sessionDir = downloadRepository.sessionDirectory().absolutePath,
+                sessionRepository.currentSession(downloadRepository.sessionDirectory().absolutePath)
+            }.onSuccess { session ->
+                _uiState.value = _uiState.value.copy(
+                    username = session?.username.orEmpty(),
+                    isLoggedIn = session != null,
+                    isLoading = false,
                 )
-            }.onSuccess {
+            }.onFailure {
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
-                    isLoggedIn = true,
-                    password = "",
-                    successMessage = "Logged in as $username",
-                    showTwoFactor = false,
-                )
-            }.onFailure { error ->
-                val mapped = error.toDownloadError()
-                _uiState.value = _uiState.value.copy(
-                    isLoading = false,
-                    errorMessage = mapped.userMessage,
-                    showTwoFactor = mapped is com.alphacorp.instaloader.data.model.DownloadError.TwoFactorRequired,
+                    errorMessage = "The saved Instagram session could not be read. Sign in again.",
                 )
             }
         }
     }
 
-    fun submitTwoFactor() {
-        val code = _uiState.value.twoFactorCode.trim()
-        if (code.isBlank()) {
-            _uiState.value = _uiState.value.copy(errorMessage = "Enter the 2FA code.")
-            return
+    fun openWebView() {
+        _uiState.value = _uiState.value.copy(isLoading = true, errorMessage = null)
+        clearWebViewCookies {
+            _uiState.value = _uiState.value.copy(isWebViewOpen = true, isLoading = false)
         }
+    }
+
+    fun closeWebView() {
+        _uiState.value = _uiState.value.copy(isLoading = true)
+        clearWebViewCookies {
+            _uiState.value = _uiState.value.copy(isWebViewOpen = false, isLoading = false)
+        }
+    }
+
+    fun importBrowserSession(cookieHeader: String, userAgent: String) {
+        if (_uiState.value.isLoading) return
 
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, errorMessage = null)
             runCatching {
-                sessionRepository.submitTwoFactor(
-                    code = code,
+                sessionRepository.importBrowserSession(
+                    cookieHeader = cookieHeader,
+                    userAgent = userAgent,
                     sessionDir = downloadRepository.sessionDirectory().absolutePath,
                 )
-            }.onSuccess {
-                _uiState.value = _uiState.value.copy(
-                    isLoading = false,
-                    isLoggedIn = true,
-                    twoFactorCode = "",
-                    showTwoFactor = false,
-                    successMessage = "Two-factor authentication successful",
-                )
+            }.onSuccess { session ->
+                clearWebViewCookies {
+                    _uiState.value = _uiState.value.copy(
+                        username = session.username,
+                        isLoggedIn = true,
+                        isWebViewOpen = false,
+                        isLoading = false,
+                        successMessage = "Logged in as ${session.username}",
+                    )
+                }
             }.onFailure { error ->
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
-                    errorMessage = error.toDownloadError().userMessage,
+                    errorMessage = safeSessionError(error),
                 )
             }
         }
@@ -119,11 +93,39 @@ class LoginViewModel(
 
     fun logout() {
         sessionRepository.logout()
-        _uiState.value = LoginUiState()
+        clearWebViewCookies {
+            _uiState.value = LoginUiState(isLoading = false)
+        }
     }
 
     fun clearMessages() {
         _uiState.value = _uiState.value.copy(errorMessage = null, successMessage = null)
+    }
+
+    private fun clearWebViewCookies(onCleared: () -> Unit) {
+        val cookieManager = CookieManager.getInstance()
+        cookieManager.removeAllCookies {
+            cookieManager.flush()
+            onCleared()
+        }
+    }
+
+    private fun safeSessionError(error: Throwable): String {
+        val message = generateSequence(error) { it.cause }
+            .mapNotNull { it.message }
+            .firstOrNull { it.isNotBlank() }
+            .orEmpty()
+        return when {
+            message.contains("connection", ignoreCase = true) ||
+                message.contains("network", ignoreCase = true) ||
+                message.contains("timeout", ignoreCase = true) ->
+                "Instagram could not be reached. Check your connection and try again."
+
+            message.startsWith("Instagram", ignoreCase = true) ||
+                message.startsWith("The Instagram", ignoreCase = true) -> message
+
+            else -> "Instagram could not confirm this login. Finish signing in and try again."
+        }
     }
 
     class Factory(
