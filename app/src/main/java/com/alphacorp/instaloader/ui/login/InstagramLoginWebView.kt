@@ -14,10 +14,14 @@ import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.ui.Alignment
 import androidx.compose.material3.Button
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -33,6 +37,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.ui.zIndex
 import com.alphacorp.instaloader.R
 import com.alphacorp.instaloader.util.InstagramLoginUrlPolicy
 
@@ -69,70 +74,79 @@ fun InstagramLoginWebView(
     }
 
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedButton(
-                onClick = { webView?.takeIf { it.canGoBack() }?.goBack() },
-                enabled = !isImporting && canNavigateBack,
-            ) {
-                Text(stringResource(R.string.login_webview_back))
-            }
-            OutlinedButton(
-                onClick = { webView?.reload() },
-                enabled = !isImporting,
-            ) {
-                Text(stringResource(R.string.login_webview_reload))
-            }
-            OutlinedButton(onClick = onClose, enabled = !isImporting) {
-                Text(stringResource(R.string.login_webview_close))
-            }
-        }
-
-        Text(
-            text = stringResource(R.string.login_webview_instruction),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-
-        Text(
-            text = pageState.errorMessage ?: if (pageState.isLoading) {
-                stringResource(
-                    R.string.login_webview_status_loading,
-                    pageState.host,
-                    pageState.progressPercent,
-                )
-            } else {
-                stringResource(R.string.login_webview_status_loaded, pageState.host)
-            },
-            style = MaterialTheme.typography.labelSmall,
-            color = if (pageState.errorMessage == null) {
-                MaterialTheme.colorScheme.onSurfaceVariant
-            } else {
-                MaterialTheme.colorScheme.error
-            },
-        )
-        if (pageState.isLoading) {
-            LinearProgressIndicator(
-                progress = { pageState.progressPercent / 100f },
-                modifier = Modifier.fillMaxWidth(),
+        Box(modifier = Modifier.fillMaxWidth().weight(1f)) {
+            AndroidView(
+                modifier = Modifier.fillMaxSize(),
+                factory = { viewContext ->
+                    WebView(viewContext).apply {
+                        webView = this
+                        configureInstagramLoginWebView(
+                            context = viewContext,
+                            onNavigationStateChanged = { canNavigateBack = it },
+                            onPageStateChanged = { pageState = it },
+                        )
+                        loadUrl(INSTAGRAM_LOGIN_URL)
+                    }
+                },
             )
-        }
 
-        AndroidView(
-            modifier = Modifier
-                .fillMaxWidth()
-                .weight(1f),
-            factory = { viewContext ->
-                WebView(viewContext).apply {
-                    webView = this
-                    configureInstagramLoginWebView(
-                        context = viewContext,
-                        onNavigationStateChanged = { canNavigateBack = it },
-                        onPageStateChanged = { pageState = it },
-                    )
-                    loadUrl(INSTAGRAM_LOGIN_URL)
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .align(Alignment.TopStart)
+                    .background(MaterialTheme.colorScheme.surface)
+                    .zIndex(1f),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedButton(
+                        onClick = { webView?.takeIf { it.canGoBack() }?.goBack() },
+                        enabled = !isImporting && canNavigateBack,
+                    ) {
+                        Text(stringResource(R.string.login_webview_back))
+                    }
+                    OutlinedButton(
+                        onClick = { webView?.reload() },
+                        enabled = !isImporting,
+                    ) {
+                        Text(stringResource(R.string.login_webview_reload))
+                    }
+                    OutlinedButton(onClick = onClose, enabled = !isImporting) {
+                        Text(stringResource(R.string.login_webview_close))
+                    }
                 }
-            },
-        )
+
+                Text(
+                    text = stringResource(R.string.login_webview_instruction),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+
+                Text(
+                    text = pageState.errorMessage ?: if (pageState.isLoading) {
+                        stringResource(
+                            R.string.login_webview_status_loading,
+                            pageState.host,
+                            pageState.progressPercent,
+                        )
+                    } else {
+                        stringResource(R.string.login_webview_status_loaded, pageState.host)
+                    },
+                    style = MaterialTheme.typography.labelSmall,
+                    color = if (pageState.errorMessage == null) {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    } else {
+                        MaterialTheme.colorScheme.error
+                    },
+                )
+                if (pageState.isLoading) {
+                    LinearProgressIndicator(
+                        progress = { pageState.progressPercent / 100f },
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+            }
+        }
 
         Button(
             onClick = {
