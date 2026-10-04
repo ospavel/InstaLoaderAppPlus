@@ -5,7 +5,11 @@ from __future__ import annotations
 import json
 
 import instaloader
-from instaloader.exceptions import LoginException
+from instaloader.exceptions import (
+    ConnectionException,
+    LoginException,
+    TooManyRequestsException,
+)
 
 
 def parse_cookie_header(cookie_header: str) -> dict[str, str]:
@@ -33,9 +37,21 @@ def verify_browser_session(cookie_header: str, user_agent: str) -> str:
         loader = instaloader.Instaloader(quiet=True, user_agent=user_agent)
         loader.context.update_cookies(cookies)
         username = loader.test_login()
+    except TooManyRequestsException:
+        raise LoginException(
+            "Instagram is temporarily limiting requests. Wait before trying again."
+        ) from None
+    except ConnectionException:
+        raise LoginException(
+            "Instagram could not be reached. Check your connection and try again."
+        ) from None
+    except LoginException:
+        raise LoginException(
+            "Instagram rejected the session. Finish any security checks in the Instagram page and try again."
+        ) from None
     except Exception:
         raise LoginException(
-            "Instagram session could not be checked. Check your connection and try again."
+            "Instagram session check failed unexpectedly. Try again later."
         ) from None
 
     if not username:

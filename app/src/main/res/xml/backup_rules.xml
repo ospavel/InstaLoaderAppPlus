@@ -7,4 +7,5 @@
 -->
 <full-backup-content>
     <exclude domain="sharedpref" path="instaloader_session.xml" />
+    <exclude domain="file" path="sessions/" />
 </full-backup-content>

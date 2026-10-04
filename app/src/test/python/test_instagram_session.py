@@ -8,7 +8,11 @@ from pathlib import Path
 from unittest.mock import patch
 
 import instaloader
-from instaloader.exceptions import LoginException
+from instaloader.exceptions import (
+    ConnectionException,
+    LoginException,
+    TooManyRequestsException,
+)
 
 from instaloader_service import session
 
@@ -74,6 +78,49 @@ class BrowserSessionTest(unittest.TestCase):
                     session.verify_browser_session(f"sessionid={secret}", "WebView UA")
 
         self.assertNotIn(secret, str(raised.exception))
+        self.assertEqual(
+            str(raised.exception),
+            "Instagram session check failed unexpectedly. Try again later.",
+        )
+
+    def test_reports_connection_errors_without_exposing_details(self):
+        loader = instaloader.Instaloader(quiet=True)
+        with patch.object(loader, "test_login", side_effect=ConnectionException("private detail")):
+            with patch.object(session.instaloader, "Instaloader", return_value=loader):
+                with self.assertRaises(LoginException) as raised:
+                    session.verify_browser_session("sessionid=secret", "WebView UA")
+
+        self.assertEqual(
+            str(raised.exception),
+            "Instagram could not be reached. Check your connection and try again.",
+        )
+        self.assertNotIn("private detail", str(raised.exception))
+
+    def test_reports_rate_limits_separately_from_connection_errors(self):
+        loader = instaloader.Instaloader(quiet=True)
+        with patch.object(loader, "test_login", side_effect=TooManyRequestsException("private detail")):
+            with patch.object(session.instaloader, "Instaloader", return_value=loader):
+                with self.assertRaises(LoginException) as raised:
+                    session.verify_browser_session("sessionid=secret", "WebView UA")
+
+        self.assertEqual(
+            str(raised.exception),
+            "Instagram is temporarily limiting requests. Wait before trying again.",
+        )
+        self.assertNotIn("private detail", str(raised.exception))
+
+    def test_sanitizes_instagram_session_rejections(self):
+        loader = instaloader.Instaloader(quiet=True)
+        with patch.object(loader, "test_login", side_effect=LoginException("feedback_required")):
+            with patch.object(session.instaloader, "Instaloader", return_value=loader):
+                with self.assertRaises(LoginException) as raised:
+                    session.verify_browser_session("sessionid=secret", "WebView UA")
+
+        self.assertEqual(
+            str(raised.exception),
+            "Instagram rejected the session. Finish any security checks in the Instagram page and try again.",
+        )
+        self.assertNotIn("feedback_required", str(raised.exception))
 
     def test_converts_legacy_pickle_without_network_access(self):
         cookies = {"sessionid": "legacy-session", "csrftoken": "legacy-csrf"}

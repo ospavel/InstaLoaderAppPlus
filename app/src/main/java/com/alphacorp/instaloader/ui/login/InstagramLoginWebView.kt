@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.activity.compose.BackHandler
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -39,6 +40,15 @@ fun InstagramLoginWebView(
     onUseThisAccount: (cookieHeader: String, userAgent: String) -> Unit,
 ) {
     var webView by remember { mutableStateOf<WebView?>(null) }
+
+    BackHandler {
+        val currentView = webView
+        if (currentView?.canGoBack() == true) {
+            currentView.goBack()
+        } else {
+            onClose()
+        }
+    }
 
     DisposableEffect(webView) {
         val viewToDestroy = webView
@@ -127,11 +137,11 @@ private fun WebView.configureInstagramLoginWebView(context: android.content.Cont
 
     webViewClient = object : WebViewClient() {
         override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean =
-            handleNavigation(view.context, request.url.toString())
-
-        @Deprecated("Deprecated in Java")
-        override fun shouldOverrideUrlLoading(view: WebView, url: String): Boolean =
-            handleNavigation(view.context, url)
+            if (request.isForMainFrame) {
+                handleNavigation(view.context, request.url.toString())
+            } else {
+                false
+            }
 
         override fun onReceivedSslError(
             view: WebView,
