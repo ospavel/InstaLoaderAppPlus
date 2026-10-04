@@ -173,10 +173,12 @@ private fun WebView.configureInstagramLoginWebView(
         WebView.startSafeBrowsing(context.applicationContext) { }
     }
 
+    var mainFrameUrl = INSTAGRAM_LOGIN_URL
     var mainFrameLoadFailed = false
 
     webViewClient = object : WebViewClient() {
         override fun onPageStarted(view: WebView, url: String, favicon: android.graphics.Bitmap?) {
+            mainFrameUrl = url
             mainFrameLoadFailed = false
             onNavigationStateChanged(view.canGoBack())
             onPageStateChanged(
@@ -254,18 +256,20 @@ private fun WebView.configureInstagramLoginWebView(
             handler: SslErrorHandler,
             error: android.net.http.SslError,
         ) {
-            mainFrameLoadFailed = true
-            onPageStateChanged(
-                InstagramPageState(
-                    host = urlHost(error.url),
-                    isLoading = false,
-                    errorMessage = view.context.getString(
-                        R.string.login_webview_status_ssl_error,
-                        error.primaryError,
-                        urlHost(error.url),
+            if (samePageUrl(error.url, mainFrameUrl) || samePageUrl(error.url, view.url.orEmpty())) {
+                mainFrameLoadFailed = true
+                onPageStateChanged(
+                    InstagramPageState(
+                        host = urlHost(error.url),
+                        isLoading = false,
+                        errorMessage = view.context.getString(
+                            R.string.login_webview_status_ssl_error,
+                            error.primaryError,
+                            urlHost(error.url),
+                        ),
                     ),
-                ),
-            )
+                )
+            }
             handler.cancel()
         }
     }
@@ -309,3 +313,21 @@ private data class InstagramPageState(
 )
 
 private fun urlHost(url: String): String = Uri.parse(url).host ?: "Instagram"
+
+private fun samePageUrl(first: String, second: String): Boolean {
+    if (first.isBlank() || second.isBlank()) return false
+    val firstUri = Uri.parse(first)
+    val secondUri = Uri.parse(second)
+    return firstUri.scheme.equals(secondUri.scheme, ignoreCase = true) &&
+        firstUri.host.equals(secondUri.host, ignoreCase = true) &&
+        normalizedPort(firstUri) == normalizedPort(secondUri) &&
+        firstUri.encodedPath == secondUri.encodedPath &&
+        firstUri.encodedQuery == secondUri.encodedQuery
+}
+
+private fun normalizedPort(uri: Uri): Int = when {
+    uri.port != -1 -> uri.port
+    uri.scheme.equals("https", ignoreCase = true) -> 443
+    uri.scheme.equals("http", ignoreCase = true) -> 80
+    else -> -1
+}
