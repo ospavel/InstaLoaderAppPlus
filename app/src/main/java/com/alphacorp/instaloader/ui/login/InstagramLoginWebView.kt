@@ -40,6 +40,7 @@ fun InstagramLoginWebView(
     onUseThisAccount: (cookieHeader: String, userAgent: String) -> Unit,
 ) {
     var webView by remember { mutableStateOf<WebView?>(null) }
+    var canNavigateBack by remember { mutableStateOf(false) }
 
     BackHandler {
         val currentView = webView
@@ -66,7 +67,7 @@ fun InstagramLoginWebView(
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedButton(
                 onClick = { webView?.takeIf { it.canGoBack() }?.goBack() },
-                enabled = !isImporting && webView?.canGoBack() == true,
+                enabled = !isImporting && canNavigateBack,
             ) {
                 Text(stringResource(R.string.login_webview_back))
             }
@@ -94,7 +95,7 @@ fun InstagramLoginWebView(
             factory = { viewContext ->
                 WebView(viewContext).apply {
                     webView = this
-                    configureInstagramLoginWebView(viewContext)
+                    configureInstagramLoginWebView(viewContext) { canNavigateBack = it }
                     loadUrl(INSTAGRAM_LOGIN_URL)
                 }
             },
@@ -119,7 +120,10 @@ fun InstagramLoginWebView(
 }
 
 @SuppressLint("SetJavaScriptEnabled")
-private fun WebView.configureInstagramLoginWebView(context: android.content.Context) {
+private fun WebView.configureInstagramLoginWebView(
+    context: android.content.Context,
+    onNavigationStateChanged: (canGoBack: Boolean) -> Unit,
+) {
     CookieManager.getInstance().setAcceptCookie(true)
     settings.apply {
         javaScriptEnabled = true
@@ -136,6 +140,14 @@ private fun WebView.configureInstagramLoginWebView(context: android.content.Cont
     }
 
     webViewClient = object : WebViewClient() {
+        override fun onPageStarted(view: WebView, url: String, favicon: android.graphics.Bitmap?) {
+            onNavigationStateChanged(view.canGoBack())
+        }
+
+        override fun onPageFinished(view: WebView, url: String) {
+            onNavigationStateChanged(view.canGoBack())
+        }
+
         override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean =
             if (request.isForMainFrame) {
                 handleNavigation(view.context, request.url.toString())
