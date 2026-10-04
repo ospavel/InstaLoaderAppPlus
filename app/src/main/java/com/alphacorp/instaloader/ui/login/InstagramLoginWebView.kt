@@ -6,16 +6,20 @@ import android.net.Uri
 import android.os.Build
 import android.webkit.CookieManager
 import android.webkit.SslErrorHandler
+import android.webkit.WebChromeClient
+import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
+import android.webkit.WebResourceResponse
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.activity.compose.BackHandler
 import androidx.compose.material3.Button
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
@@ -41,6 +45,7 @@ fun InstagramLoginWebView(
 ) {
     var webView by remember { mutableStateOf<WebView?>(null) }
     var canNavigateBack by remember { mutableStateOf(false) }
+    var pageState by remember { mutableStateOf(InstagramPageState()) }
 
     BackHandler {
         val currentView = webView
@@ -88,6 +93,30 @@ fun InstagramLoginWebView(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
 
+        Text(
+            text = pageState.errorMessage ?: if (pageState.isLoading) {
+                stringResource(
+                    R.string.login_webview_status_loading,
+                    pageState.host,
+                    pageState.progressPercent,
+                )
+            } else {
+                stringResource(R.string.login_webview_status_loaded, pageState.host)
+            },
+            style = MaterialTheme.typography.labelSmall,
+            color = if (pageState.errorMessage == null) {
+                MaterialTheme.colorScheme.onSurfaceVariant
+            } else {
+                MaterialTheme.colorScheme.error
+            },
+        )
+        if (pageState.isLoading) {
+            LinearProgressIndicator(
+                progress = { pageState.progressPercent / 100f },
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
+
         AndroidView(
             modifier = Modifier
                 .fillMaxWidth()
@@ -95,7 +124,11 @@ fun InstagramLoginWebView(
             factory = { viewContext ->
                 WebView(viewContext).apply {
                     webView = this
-                    configureInstagramLoginWebView(viewContext) { canNavigateBack = it }
+                    configureInstagramLoginWebView(
+                        context = viewContext,
+                        onNavigationStateChanged = { canNavigateBack = it },
+                        onPageStateChanged = { pageState = it },
+                    )
                     loadUrl(INSTAGRAM_LOGIN_URL)
                 }
             },
@@ -123,6 +156,7 @@ fun InstagramLoginWebView(
 private fun WebView.configureInstagramLoginWebView(
     context: android.content.Context,
     onNavigationStateChanged: (canGoBack: Boolean) -> Unit,
+    onPageStateChanged: (InstagramPageState) -> Unit,
 ) {
     CookieManager.getInstance().setAcceptCookie(true)
     settings.apply {
@@ -139,13 +173,73 @@ private fun WebView.configureInstagramLoginWebView(
         WebView.startSafeBrowsing(context.applicationContext) { }
     }
 
+    var mainFrameLoadFailed = false
+
     webViewClient = object : WebViewClient() {
         override fun onPageStarted(view: WebView, url: String, favicon: android.graphics.Bitmap?) {
+            mainFrameLoadFailed = false
             onNavigationStateChanged(view.canGoBack())
+            onPageStateChanged(
+                InstagramPageState(
+                    host = urlHost(url),
+                    isLoading = true,
+                ),
+            )
         }
 
         override fun onPageFinished(view: WebView, url: String) {
             onNavigationStateChanged(view.canGoBack())
+            if (!mainFrameLoadFailed) {
+                onPageStateChanged(
+                    InstagramPageState(
+                        host = urlHost(url),
+                        progressPercent = 100,
+                        isLoading = false,
+                    ),
+                )
+            }
+        }
+
+        override fun onReceivedError(
+            view: WebView,
+            request: WebResourceRequest,
+            error: WebResourceError,
+        ) {
+            if (request.isForMainFrame) {
+                mainFrameLoadFailed = true
+                onPageStateChanged(
+                    InstagramPageState(
+                        host = urlHost(request.url.toString()),
+                        isLoading = false,
+                        errorMessage = view.context.getString(
+                            R.string.login_webview_status_load_error,
+                            error.errorCode,
+                            error.description.toString().take(MAX_WEB_ERROR_LENGTH),
+                        ),
+                    ),
+                )
+            }
+        }
+
+        override fun onReceivedHttpError(
+            view: WebView,
+            request: WebResourceRequest,
+            errorResponse: WebResourceResponse,
+        ) {
+            if (request.isForMainFrame) {
+                mainFrameLoadFailed = true
+                onPageStateChanged(
+                    InstagramPageState(
+                        host = urlHost(request.url.toString()),
+                        isLoading = false,
+                        errorMessage = view.context.getString(
+                            R.string.login_webview_status_http_error,
+                            errorResponse.statusCode,
+                            urlHost(request.url.toString()),
+                        ),
+                    ),
+                )
+            }
         }
 
         override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean =
@@ -160,7 +254,33 @@ private fun WebView.configureInstagramLoginWebView(
             handler: SslErrorHandler,
             error: android.net.http.SslError,
         ) {
+            mainFrameLoadFailed = true
+            onPageStateChanged(
+                InstagramPageState(
+                    host = urlHost(error.url),
+                    isLoading = false,
+                    errorMessage = view.context.getString(
+                        R.string.login_webview_status_ssl_error,
+                        error.primaryError,
+                        urlHost(error.url),
+                    ),
+                ),
+            )
             handler.cancel()
+        }
+    }
+
+    webChromeClient = object : WebChromeClient() {
+        override fun onProgressChanged(view: WebView, newProgress: Int) {
+            if (!mainFrameLoadFailed) {
+                onPageStateChanged(
+                    InstagramPageState(
+                        host = urlHost(view.url.orEmpty()),
+                        progressPercent = newProgress,
+                        isLoading = newProgress < 100,
+                    ),
+                )
+            }
         }
     }
 }
@@ -179,3 +299,13 @@ private fun handleNavigation(context: android.content.Context, url: String): Boo
 
 private const val INSTAGRAM_ORIGIN = "https://www.instagram.com"
 private const val INSTAGRAM_LOGIN_URL = "$INSTAGRAM_ORIGIN/accounts/login/"
+private const val MAX_WEB_ERROR_LENGTH = 120
+
+private data class InstagramPageState(
+    val host: String = "www.instagram.com",
+    val progressPercent: Int = 0,
+    val isLoading: Boolean = true,
+    val errorMessage: String? = null,
+)
+
+private fun urlHost(url: String): String = Uri.parse(url).host ?: "Instagram"
