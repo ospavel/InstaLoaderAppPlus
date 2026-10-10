@@ -58,6 +58,7 @@ class HomeViewModel(
     }
 
     fun onInputChanged(value: String) {
+        downloadRepository.clearProgress()
         _uiState.value = _uiState.value.copy(
             input = value,
             targetLabel = parseInput.detectLabel(value),
@@ -98,7 +99,6 @@ class HomeViewModel(
 
     fun clearMessages() {
         _uiState.value = _uiState.value.copy(errorMessage = null, successMessage = null)
-        downloadRepository.clearProgress()
     }
 
     class Factory(

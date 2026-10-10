@@ -141,7 +141,11 @@ class DownloadRepository(
             )
         } catch (error: Exception) {
             val message = error.toDownloadError().userMessage
-            _progress.value = DownloadProgress(phase = "error", message = message)
+            _progress.value = DownloadProgress(
+                phase = "error",
+                message = message,
+                errorDetails = error.stackTraceToString(),
+            )
             throw error
         }
     }

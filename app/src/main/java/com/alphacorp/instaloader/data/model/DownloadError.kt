@@ -13,6 +13,9 @@ sealed class DownloadError(val userMessage: String) : Exception(userMessage) {
     data class Network(val detail: String = "") :
         DownloadError("Network error. Check your connection and try again.")
 
+    data class InstagramHttp(val statusCode: Int, val detail: String = "") :
+        DownloadError("Instagram returned HTTP $statusCode. Open Error details for the response.")
+
     data class InvalidTarget(val detail: String = "") :
         DownloadError(detail.ifBlank { "Invalid username or URL." })
 
@@ -42,6 +45,9 @@ fun Throwable.toDownloadError(): DownloadError {
         .mapNotNull { it.message }
         .joinToString(" ")
         .ifBlank { toString() }
+    val httpStatus = Regex("""\b([45]\d\d)\s+[A-Za-z]""")
+        .find(message)
+        ?.groupValues?.get(1)?.toIntOrNull()
 
     return when {
         message.contains("LoginRequired", ignoreCase = true) ||
@@ -65,6 +71,8 @@ fun Throwable.toDownloadError(): DownloadError {
             message.contains("TooManyRequests", ignoreCase = true) ||
             message.contains("rate limit", ignoreCase = true) ->
             DownloadError.RateLimited(message)
+
+        httpStatus != null -> DownloadError.InstagramHttp(httpStatus, message)
 
         message.contains("Connection", ignoreCase = true) ||
             message.contains("network", ignoreCase = true) ||

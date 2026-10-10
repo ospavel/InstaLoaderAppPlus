@@ -51,29 +51,21 @@ class PythonBridge {
         module.callAttr("cancel_download")
     }
 
-    private fun ((DownloadProgress) -> Unit).toPythonCallback(): (
-        String,
-        String,
-        String,
-        String,
-        String,
-        String,
-        String,
-        String,
-    ) -> Unit = { phase, total, completed, failed, skipped, remaining, current, message ->
-        this(
-            DownloadProgress(
-                phase = phase,
-                total = total.toIntOrNull(),
-                completed = completed.toIntOrNull() ?: 0,
-                failed = failed.toIntOrNull() ?: 0,
-                skipped = skipped.toIntOrNull() ?: 0,
-                remaining = remaining.toIntOrNull(),
-                current = current,
-                message = message,
-            ),
-        )
-    }
+    private fun ((DownloadProgress) -> Unit).toPythonCallback(): ProgressCallback =
+        ProgressCallback { phase, total, completed, failed, skipped, remaining, current, message ->
+            this(
+                DownloadProgress(
+                    phase = phase,
+                    total = total.toIntOrNull(),
+                    completed = completed.toIntOrNull() ?: 0,
+                    failed = failed.toIntOrNull() ?: 0,
+                    skipped = skipped.toIntOrNull() ?: 0,
+                    remaining = remaining.toIntOrNull(),
+                    current = current,
+                    message = message,
+                ),
+            )
+        }
 
     private fun DownloadOptions.toPyDict(
         baseDir: String,

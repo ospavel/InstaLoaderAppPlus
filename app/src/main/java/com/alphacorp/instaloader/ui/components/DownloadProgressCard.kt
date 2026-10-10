@@ -1,6 +1,7 @@
 package com.alphacorp.instaloader.ui.components
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -23,9 +24,16 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -40,6 +48,8 @@ fun DownloadProgressCard(
     progress: DownloadProgress,
     modifier: Modifier = Modifier,
 ) {
+    val clipboardManager = LocalClipboardManager.current
+    var showErrorDetails by remember(progress.errorDetails) { mutableStateOf(false) }
     val phaseStyle = progressPhaseStyle(progress.phase)
     val processed = progress.completed + progress.failed + progress.skipped
     val remaining = progress.remaining ?: progress.total?.let { total ->
@@ -172,6 +182,36 @@ fun DownloadProgressCard(
                         containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.45f),
                         contentColor = MaterialTheme.colorScheme.onErrorContainer,
                     )
+                }
+            }
+
+            if (progress.phase == "error" && progress.errorDetails.isNotBlank()) {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        TextButton(onClick = { showErrorDetails = !showErrorDetails }) {
+                            Text(if (showErrorDetails) "Hide error details" else "Show error details")
+                        }
+                        TextButton(onClick = {
+                            clipboardManager.setText(AnnotatedString(progress.errorDetails))
+                        }) {
+                            Text("Copy details")
+                        }
+                    }
+                    if (showErrorDetails) {
+                        SelectionContainer {
+                            Text(
+                                text = progress.errorDetails,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
                 }
             }
 

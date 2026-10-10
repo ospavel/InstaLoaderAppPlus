@@ -89,7 +89,7 @@ class DownloadForegroundService : Service() {
             }.onFailure { error ->
                 Log.e(TAG, "Download failed", error)
                 val message = error.toDownloadError().userMessage
-                reportError(message)
+                reportError(message, error.stackTraceToString())
                 updateNotification(message, 0, null, null)
             }
 
@@ -99,9 +99,9 @@ class DownloadForegroundService : Service() {
         }
     }
 
-    private fun reportError(message: String) {
+    private fun reportError(message: String, details: String = "") {
         downloadRepository.updateProgress(
-            DownloadProgress(phase = "error", message = message),
+            DownloadProgress(phase = "error", message = message, errorDetails = details),
         )
     }
 

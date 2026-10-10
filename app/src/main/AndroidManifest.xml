@@ -33,6 +33,11 @@
             </intent-filter>
         </activity>
 
+        <activity
+            android:name=".ui.login.BrowserLoginActivity"
+            android:exported="false"
+            android:theme="@style/Theme.InstaLoader" />
+
         <service
             android:name=".service.DownloadForegroundService"
             android:exported="false"

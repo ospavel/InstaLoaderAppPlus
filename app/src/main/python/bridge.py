@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Callable, Dict, Optional
+from typing import Any, Dict, Optional
 
 from instaloader_service import (
     cancel_download,
@@ -61,7 +61,7 @@ def download_with_options(
     target_type: str,
     target_value: str,
     options: Any,
-    progress_callback: Optional[Callable] = None,
+    progress_callback: Optional[Any] = None,
 ) -> None:
     """Kotlin entry point — options must be a native Python dict, not a Java HashMap."""
     py_options = _to_python_dict(options)
@@ -70,7 +70,7 @@ def download_with_options(
         if progress_callback is None:
             return
         # Pass strings only — Chaquopy throws ClassCastException on Int/Long mismatches.
-        progress_callback(
+        progress_callback.onProgress(
             str(payload.get("phase") or ""),
             _stringify(payload.get("total")),
             _stringify(payload.get("completed")),

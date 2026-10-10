@@ -1,0 +1,14 @@
+.git
+.gradle
+.idea
+.externalNativeBuild
+.cxx
+**/.gradle
+**/build
+**/__pycache__
+*.py[cod]
+*.apk
+*.iml
+captures
+keystore.properties
+local.properties

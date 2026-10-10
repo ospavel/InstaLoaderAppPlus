@@ -9,6 +9,7 @@ data class DownloadProgress(
     val remaining: Int? = null,
     val current: String = "",
     val message: String = "",
+    val errorDetails: String = "",
 ) {
     val isActive: Boolean
         get() = phase !in setOf("idle", "finished", "cancelled", "error")

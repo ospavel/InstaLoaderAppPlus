@@ -14,7 +14,7 @@ Download profiles, posts, reels, and hashtags using [`instaloader`](https://gith
 
 ## Overview
 
-**InstaLoaderApp** uses Jetpack Compose, foreground downloads with notifications, and instaloader 4.15.1 via Chaquopy. Files save to **`Downloads/InstaLoaderApp/`** by default (changeable in Settings → Storage).
+**InstaLoaderApp** uses Jetpack Compose, foreground downloads with notifications, and instaloader 4.15.3 via Chaquopy. Files save to **`Downloads/InstaLoaderApp/`** by default (changeable in Settings → Storage).
 
 > [!TIP]
 > Login is optional — only needed for private content, stories, highlights, or comments.
@@ -47,7 +47,7 @@ Download profiles, posts, reels, and hashtags using [`instaloader`](https://gith
 
 [<img src="https://github.com/machiav3lli/oandbackupx/blob/034b226cea5c1b30eb4f6a6f313e4dadcbb0ece4/badge_github.png" alt="Get it on GitHub" height="80">](https://github.com/AzeemIdrisi/InstaLoaderApp/releases/latest)
 
-Install the APK, then on first download grant **All files access** (Android 11+) and **Notifications** (Android 13+) when prompted.
+Install the APK. The current storage implementation asks for **All files access** (Android 11+) on the first download because it writes directly to public folders. This permission covers shared storage beyond the download folder; grant it only if you trust the app, and revoke it after use if you prefer. **Notifications** permission is requested on Android 13+.
 
 ---
 
@@ -61,6 +61,8 @@ Install the APK, then on first download grant **All files access** (Android 11+)
 
 1. Enter a username, URL, or hashtag → **Start download**.
 2. For posts/reels, copy the link from Instagram and paste into the app.
+
+If a download fails, expand **Error details** in the progress card to see and copy the full exception. Review the details before sharing them, since request URLs may contain private information.
 
 > [!WARNING]
 > Large profiles can take a long time. Instagram may restrict accounts used for automated downloading — use a secondary account at your own risk if you log in.
@@ -81,18 +83,33 @@ Older Instaloader session files are converted to encrypted cookie data locally w
 
 ## Build from source
 
-```
-git clone https://github.com/AzeemIdrisi/InstaLoaderApp.git
-cd InstaLoaderApp
+### Docker (macOS)
+
+Docker Desktop is required. The builder image contains JDK 17, Python 3.14, Android SDK Platform 35, and Android SDK Build-Tools 34.0.0. On Apple Silicon, Docker runs the Linux AMD64 builder through its built-in emulation. No Android SDK or JDK installation on macOS is required.
+
+Build the signed release APK:
+
+```sh
+sh docker/build-apk.sh
 ```
 
-Set `sdk.dir` in `local.properties`, then:
+The first build downloads the builder image and Gradle dependencies. Later builds reuse the Docker image and the `instaloaderapp-gradle-cache` volume. The APK is written to `app/build/outputs/apk/release/app-release.apk`. A release build requires a local `keystore.properties` and signing key; both are excluded from Git. Back up both files, since the same key is needed to update an installed APK later.
 
-```
-./gradlew installDebug
+The script accepts Gradle tasks too, for example:
+
+```sh
+sh docker/build-apk.sh testReleaseUnitTest assembleRelease
 ```
 
-Requires Android Studio, JDK 17, and Python 3 for Chaquopy. See `app/build.gradle` for `buildPython` path.
+### Native macOS build
+
+Install [Android Studio](https://developer.android.com/studio) and use its SDK Manager to install Android SDK Platform 35 and Android SDK Build-Tools 34.0.0. Install a [JDK 17 build for macOS ARM64](https://adoptium.net/temurin/releases/?version=17), then point `JAVA_HOME` at it. Chaquopy 17 also requires Python 3.14; the configured path in `app/build.gradle` is `/opt/homebrew/bin/python3`.
+
+Set `sdk.dir` in `local.properties`, then run:
+
+```sh
+JAVA_HOME=/path/to/jdk-17 ./gradlew assembleRelease
+```
 
 ---
 

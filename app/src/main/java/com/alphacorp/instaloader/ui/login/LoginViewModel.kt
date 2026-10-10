@@ -14,7 +14,6 @@ import kotlinx.coroutines.launch
 data class LoginUiState(
     val username: String = "",
     val isLoggedIn: Boolean = false,
-    val isWebViewOpen: Boolean = false,
     val isLoading: Boolean = true,
     val errorMessage: String? = null,
     val successMessage: String? = null,
@@ -47,20 +46,6 @@ class LoginViewModel(
         }
     }
 
-    fun openWebView() {
-        _uiState.value = _uiState.value.copy(isLoading = true, errorMessage = null)
-        clearWebViewCookies {
-            _uiState.value = _uiState.value.copy(isWebViewOpen = true, isLoading = false)
-        }
-    }
-
-    fun closeWebView() {
-        _uiState.value = _uiState.value.copy(isLoading = true)
-        clearWebViewCookies {
-            _uiState.value = _uiState.value.copy(isWebViewOpen = false, isLoading = false)
-        }
-    }
-
     fun importBrowserSession(cookieHeader: String, userAgent: String) {
         if (_uiState.value.isLoading) return
 
@@ -77,7 +62,6 @@ class LoginViewModel(
                     _uiState.value = _uiState.value.copy(
                         username = session.username,
                         isLoggedIn = true,
-                        isWebViewOpen = false,
                         isLoading = false,
                         successMessage = "Logged in as ${session.username}",
                     )
