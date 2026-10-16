@@ -24,7 +24,20 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.util.Locale
 import java.util.concurrent.atomic.AtomicReference
+
+private val MEDIA_FILE_EXTENSIONS = setOf(
+    "jpg",
+    "jpeg",
+    "png",
+    "webp",
+    "gif",
+    "mp4",
+    "m4v",
+    "mov",
+    "webm",
+)
 
 class DownloadRepository(
     private val context: Context,
@@ -111,6 +124,22 @@ class DownloadRepository(
             options = optionsStore.options.first(),
             session = session,
         )
+    }
+
+    suspend fun savedMediaFiles(): List<File> = withContext(Dispatchers.IO) {
+        val directory = downloadDirectory.first()
+        if (!directory.exists() || !directory.isDirectory) {
+            return@withContext emptyList()
+        }
+
+        runCatching {
+            directory.walkTopDown()
+                .filter { file ->
+                    file.isFile && file.extension.lowercase(Locale.ROOT) in MEDIA_FILE_EXTENSIONS
+                }
+                .sortedByDescending { file -> file.lastModified() }
+                .toList()
+        }.getOrDefault(emptyList())
     }
 
     suspend fun startDownload(input: String, options: DownloadOptions) = withContext(Dispatchers.IO) {

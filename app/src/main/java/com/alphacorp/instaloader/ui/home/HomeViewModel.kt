@@ -14,11 +14,13 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import java.io.File
 
 data class HomeUiState(
     val input: String = "",
     val targetLabel: String = "",
     val progress: DownloadProgress = DownloadProgress(),
+    val savedFiles: List<File> = emptyList(),
     val isDownloading: Boolean = false,
     val errorMessage: String? = null,
     val successMessage: String? = null,
@@ -42,6 +44,9 @@ class HomeViewModel(
 
     init {
         viewModelScope.launch {
+            refreshSavedFiles()
+        }
+        viewModelScope.launch {
             downloadRepository.progress.collect { progress ->
                 _uiState.value = _uiState.value.copy(
                     progress = progress,
@@ -53,8 +58,17 @@ class HomeViewModel(
                         else -> null
                     },
                 )
+                if (progress.phase in setOf("finished", "error", "cancelled")) {
+                    refreshSavedFiles()
+                }
             }
         }
+    }
+
+    private suspend fun refreshSavedFiles() {
+        _uiState.value = _uiState.value.copy(
+            savedFiles = downloadRepository.savedMediaFiles(),
+        )
     }
 
     fun onInputChanged(value: String) {

@@ -1,7 +1,6 @@
 package com.alphacorp.instaloader.ui.components
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -11,15 +10,11 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.ErrorOutline
-import androidx.compose.material.icons.filled.HourglassEmpty
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -32,13 +27,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.alphacorp.instaloader.data.model.DownloadProgress
@@ -48,210 +40,165 @@ fun DownloadProgressCard(
     progress: DownloadProgress,
     modifier: Modifier = Modifier,
 ) {
+    when {
+        progress.isActive -> DownloadProgressIndicator(progress, modifier)
+        progress.phase in setOf("finished", "error", "cancelled") -> DownloadResultLine(progress, modifier)
+    }
+}
+
+@Composable
+private fun DownloadProgressIndicator(
+    progress: DownloadProgress,
+    modifier: Modifier,
+) {
+    val fraction = progress.progressFraction?.coerceIn(0f, 1f)
+    val title = progress.transferFile.ifBlank {
+        progress.current.ifBlank { progress.message }
+    }
+
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            Text(
+                text = title.ifBlank { "Downloading" },
+                modifier = Modifier.weight(1f),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            if (fraction != null) {
+                Text(
+                    text = if (progress.transferProgressFraction != null) {
+                        "File ${(fraction * 100).toInt()}%"
+                    } else {
+                        "${(fraction * 100).toInt()}%"
+                    },
+                    modifier = Modifier.padding(start = 12.dp),
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+            }
+        }
+
+        if (fraction != null) {
+            LinearProgressIndicator(
+                progress = { fraction },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(8.dp)
+                    .clip(RoundedCornerShape(50)),
+                color = MaterialTheme.colorScheme.primary,
+                trackColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+            )
+        } else {
+            LinearProgressIndicator(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(8.dp)
+                    .clip(RoundedCornerShape(50)),
+                color = MaterialTheme.colorScheme.primary,
+                trackColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+            )
+        }
+
+        if (progress.transferFile.isNotBlank()) {
+            val transferred = progress.transferCompletedBytes ?: 0L
+            val totalBytes = progress.transferTotalBytes
+            Text(
+                text = if (totalBytes != null) {
+                    "${formatByteCount(transferred)} / ${formatByteCount(totalBytes)}"
+                } else {
+                    "${formatByteCount(transferred)} downloaded"
+                },
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
+@Composable
+private fun DownloadResultLine(
+    progress: DownloadProgress,
+    modifier: Modifier,
+) {
     val clipboardManager = LocalClipboardManager.current
     var showErrorDetails by remember(progress.errorDetails) { mutableStateOf(false) }
-    val phaseStyle = progressPhaseStyle(progress.phase)
-    val processed = progress.completed + progress.failed + progress.skipped
-    val remaining = progress.remaining ?: progress.total?.let { total ->
-        (total - processed).coerceAtLeast(0)
+    val isError = progress.phase == "error"
+    val icon = when (progress.phase) {
+        "finished" -> Icons.Default.CheckCircle
+        "cancelled" -> Icons.Default.Close
+        else -> Icons.Default.ErrorOutline
     }
-    val determinateFraction = progress.progressFraction
-        ?.coerceIn(0f, 1f)
-        ?.takeIf { progress.phase !in setOf("starting", "idle") }
-    val statusTitle = progress.message.ifBlank {
-        progress.phase.replaceFirstChar { it.uppercase() }
+    val iconColor = if (isError) {
+        MaterialTheme.colorScheme.error
+    } else {
+        MaterialTheme.colorScheme.primary
     }
-    val countLabel = progress.total?.let { total ->
-        "$processed / $total"
+    val statusText = progress.message.ifBlank {
+        when (progress.phase) {
+            "finished" -> "Download finished"
+            "cancelled" -> "Download cancelled"
+            else -> "Download failed"
+        }
     }
 
-    ElevatedCard(
-        modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
-        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 1.dp),
-        colors = CardDefaults.elevatedCardColors(
-            containerColor = MaterialTheme.colorScheme.surface,
-        ),
-    ) {
-        Column(
-            modifier = Modifier.padding(18.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
+    Column(modifier = modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            Box(
+                modifier = Modifier
+                    .size(44.dp)
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(iconColor.copy(alpha = 0.16f)),
+                contentAlignment = Alignment.Center,
             ) {
-                Box(
-                    modifier = Modifier
-                        .size(40.dp)
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(phaseStyle.containerColor),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    if (phaseStyle.showSpinner) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(22.dp),
-                            strokeWidth = 2.5.dp,
-                            color = phaseStyle.contentColor,
-                        )
-                    } else {
-                        Icon(
-                            imageVector = phaseStyle.icon,
-                            contentDescription = null,
-                            tint = phaseStyle.contentColor,
-                            modifier = Modifier.size(22.dp),
-                        )
-                    }
-                }
-
-                Column(
-                    modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(2.dp),
-                ) {
-                    Text(
-                        text = statusTitle,
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.SemiBold,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                    if (countLabel != null) {
-                        Text(
-                            text = countLabel,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                }
-
-                determinateFraction?.let { fraction ->
-                    Text(
-                        text = if (progress.transferProgressFraction != null) {
-                            "File ${(fraction * 100).toInt()}%"
-                        } else {
-                            "${(fraction * 100).toInt()}%"
-                        },
-                        style = MaterialTheme.typography.labelLarge,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary,
-                    )
-                }
-            }
-
-            if (determinateFraction != null) {
-                LinearProgressIndicator(
-                    progress = { determinateFraction },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(8.dp)
-                        .clip(RoundedCornerShape(50)),
-                    color = MaterialTheme.colorScheme.primary,
-                    trackColor = MaterialTheme.colorScheme.surfaceContainerHighest,
-                )
-            } else if (progress.isActive) {
-                LinearProgressIndicator(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(8.dp)
-                        .clip(RoundedCornerShape(50)),
-                    color = MaterialTheme.colorScheme.primary,
-                    trackColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = iconColor,
+                    modifier = Modifier.size(24.dp),
                 )
             }
+            Text(
+                text = statusText,
+                modifier = Modifier.weight(1f),
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
 
-            if (progress.total != null || processed > 0 || progress.failed > 0) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    StatTile(
-                        modifier = Modifier.weight(1f),
-                        label = "Done",
-                        value = progress.completed,
-                        containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.55f),
-                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                    )
-                    StatTile(
-                        modifier = Modifier.weight(1f),
-                        label = "Left",
-                        value = remaining,
-                        containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.55f),
-                        contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
-                    )
-                    StatTile(
-                        modifier = Modifier.weight(1f),
-                        label = "Failed",
-                        value = progress.failed,
-                        containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.45f),
-                        contentColor = MaterialTheme.colorScheme.onErrorContainer,
-                    )
+        if (isError && progress.errorDetails.isNotBlank()) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                TextButton(onClick = { showErrorDetails = !showErrorDetails }) {
+                    Text(if (showErrorDetails) "Hide details" else "Show details")
+                }
+                TextButton(onClick = {
+                    clipboardManager.setText(AnnotatedString(progress.errorDetails))
+                }) {
+                    Text("Copy details")
                 }
             }
-
-            if (progress.phase == "error" && progress.errorDetails.isNotBlank()) {
-                Column(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(6.dp),
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        TextButton(onClick = { showErrorDetails = !showErrorDetails }) {
-                            Text(if (showErrorDetails) "Hide error details" else "Show error details")
-                        }
-                        TextButton(onClick = {
-                            clipboardManager.setText(AnnotatedString(progress.errorDetails))
-                        }) {
-                            Text("Copy details")
-                        }
-                    }
-                    if (showErrorDetails) {
-                        SelectionContainer {
-                            Text(
-                                text = progress.errorDetails,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                    }
-                }
-            }
-
-            if (progress.current.isNotBlank() || progress.transferFile.isNotBlank()) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(MaterialTheme.colorScheme.surfaceContainerLow)
-                        .padding(horizontal = 12.dp, vertical = 10.dp),
-                    verticalArrangement = Arrangement.spacedBy(2.dp),
-                ) {
+            if (showErrorDetails) {
+                SelectionContainer {
                     Text(
-                        text = if (progress.transferFile.isNotBlank()) "Current file" else "Current item",
-                        style = MaterialTheme.typography.labelSmall,
+                        text = progress.errorDetails,
+                        style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
-                    Text(
-                        text = progress.transferFile.ifBlank { progress.current },
-                        style = MaterialTheme.typography.bodySmall,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                    if (progress.transferFile.isNotBlank()) {
-                        val transferred = progress.transferCompletedBytes ?: 0L
-                        val totalBytes = progress.transferTotalBytes
-                        Text(
-                            text = if (totalBytes != null) {
-                                "${formatByteCount(transferred)} / ${formatByteCount(totalBytes)}"
-                            } else {
-                                "${formatByteCount(transferred)} downloaded"
-                            },
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
                 }
             }
         }
@@ -262,82 +209,11 @@ private fun formatByteCount(byteCount: Long): String {
     if (byteCount < 1024L) return "$byteCount B"
 
     var value = byteCount.toDouble()
-    val units = listOf("KB", "MB", "GB")
+    val units = listOf("KB", "MB", "GB", "TB")
     var unitIndex = 0
     while (value >= 1024.0 && unitIndex < units.lastIndex) {
         value /= 1024.0
         unitIndex += 1
     }
     return "%.1f %s".format(value, units[unitIndex])
-}
-
-@Composable
-private fun StatTile(
-    label: String,
-    value: Int?,
-    containerColor: androidx.compose.ui.graphics.Color,
-    contentColor: androidx.compose.ui.graphics.Color,
-    modifier: Modifier = Modifier,
-) {
-    Column(
-        modifier = modifier
-            .clip(RoundedCornerShape(14.dp))
-            .background(containerColor)
-            .padding(vertical = 12.dp, horizontal = 8.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(4.dp),
-    ) {
-        Text(
-            text = value?.toString() ?: "0",
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold,
-            color = contentColor,
-            textAlign = TextAlign.Center,
-        )
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelSmall,
-            color = contentColor.copy(alpha = 0.82f),
-            textAlign = TextAlign.Center,
-        )
-    }
-}
-
-private data class PhaseStyle(
-    val icon: ImageVector,
-    val containerColor: androidx.compose.ui.graphics.Color,
-    val contentColor: androidx.compose.ui.graphics.Color,
-    val showSpinner: Boolean = false,
-)
-
-@Composable
-private fun progressPhaseStyle(phase: String): PhaseStyle {
-    return when (phase) {
-        "finished" -> PhaseStyle(
-            icon = Icons.Default.CheckCircle,
-            containerColor = MaterialTheme.colorScheme.tertiaryContainer,
-            contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
-        )
-        "error" -> PhaseStyle(
-            icon = Icons.Default.ErrorOutline,
-            containerColor = MaterialTheme.colorScheme.errorContainer,
-            contentColor = MaterialTheme.colorScheme.onErrorContainer,
-        )
-        "cancelled" -> PhaseStyle(
-            icon = Icons.Default.Close,
-            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-            contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        "starting", "idle" -> PhaseStyle(
-            icon = Icons.Default.Download,
-            containerColor = MaterialTheme.colorScheme.primary,
-            contentColor = Color.White,
-            showSpinner = true,
-        )
-        else -> PhaseStyle(
-            icon = Icons.Default.HourglassEmpty,
-            containerColor = MaterialTheme.colorScheme.primary,
-            contentColor = Color.White,
-        )
-    }
 }

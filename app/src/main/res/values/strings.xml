@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">InstaLoaderApp</string>
+    <string name="app_name">InstaLoaderApp Plus</string>
     <string name="home_subtitle">Download Instagram profiles, posts, reels, and hashtags with full Instaloader options.</string>
     <string name="home_tagline">Instagram media downloader</string>
     <string name="home_input_title">What do you want to download?</string>

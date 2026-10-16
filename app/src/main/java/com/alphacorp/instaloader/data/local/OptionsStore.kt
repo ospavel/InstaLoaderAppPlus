@@ -10,49 +10,68 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.alphacorp.instaloader.data.model.DownloadOptions
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.emitAll
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
 
 private val Context.optionsDataStore: DataStore<Preferences> by preferencesDataStore(name = "download_options")
 
 class OptionsStore(private val context: Context) {
 
-    val options: Flow<DownloadOptions> = context.optionsDataStore.data.map { prefs ->
-        DownloadOptions(
-            quiet = prefs[Keys.QUIET] ?: DownloadOptions.Default.quiet,
-            downloadPictures = prefs[Keys.DOWNLOAD_PICTURES] ?: DownloadOptions.Default.downloadPictures,
-            downloadVideos = prefs[Keys.DOWNLOAD_VIDEOS] ?: DownloadOptions.Default.downloadVideos,
-            downloadVideoThumbnails = prefs[Keys.DOWNLOAD_VIDEO_THUMBNAILS] ?: DownloadOptions.Default.downloadVideoThumbnails,
-            downloadGeotags = prefs[Keys.DOWNLOAD_GEOTAGS] ?: DownloadOptions.Default.downloadGeotags,
-            downloadComments = prefs[Keys.DOWNLOAD_COMMENTS] ?: DownloadOptions.Default.downloadComments,
-            saveMetadata = prefs[Keys.SAVE_METADATA] ?: DownloadOptions.Default.saveMetadata,
-            compressJson = prefs[Keys.COMPRESS_JSON] ?: DownloadOptions.Default.compressJson,
-            saveCaptions = prefs[Keys.SAVE_CAPTIONS] ?: DownloadOptions.Default.saveCaptions,
-            postMetadataTxtPattern = prefs[Keys.POST_METADATA_TXT_PATTERN] ?: DownloadOptions.Default.postMetadataTxtPattern,
-            storyitemMetadataTxtPattern = prefs[Keys.STORYITEM_METADATA_TXT_PATTERN] ?: DownloadOptions.Default.storyitemMetadataTxtPattern,
-            profilePic = prefs[Keys.PROFILE_PIC] ?: DownloadOptions.Default.profilePic,
-            posts = prefs[Keys.POSTS] ?: DownloadOptions.Default.posts,
-            tagged = prefs[Keys.TAGGED] ?: DownloadOptions.Default.tagged,
-            igtv = prefs[Keys.IGTV] ?: DownloadOptions.Default.igtv,
-            highlights = prefs[Keys.HIGHLIGHTS] ?: DownloadOptions.Default.highlights,
-            stories = prefs[Keys.STORIES] ?: DownloadOptions.Default.stories,
-            reels = prefs[Keys.REELS] ?: DownloadOptions.Default.reels,
-            fastUpdate = prefs[Keys.FAST_UPDATE] ?: DownloadOptions.Default.fastUpdate,
-            maxCount = prefs[Keys.MAX_COUNT]?.takeIf { it > 0 },
-            postFilter = prefs[Keys.POST_FILTER] ?: DownloadOptions.Default.postFilter,
-            storyitemFilter = prefs[Keys.STORYITEM_FILTER] ?: DownloadOptions.Default.storyitemFilter,
-            dirnamePattern = prefs[Keys.DIRNAME_PATTERN] ?: DownloadOptions.Default.dirnamePattern,
-            filenamePattern = prefs[Keys.FILENAME_PATTERN] ?: DownloadOptions.Default.filenamePattern,
-            titlePattern = prefs[Keys.TITLE_PATTERN] ?: DownloadOptions.Default.titlePattern,
-            sanitizePaths = prefs[Keys.SANITIZE_PATHS] ?: DownloadOptions.Default.sanitizePaths,
-            userAgent = prefs[Keys.USER_AGENT] ?: DownloadOptions.Default.userAgent,
-            maxConnectionAttempts = prefs[Keys.MAX_CONNECTION_ATTEMPTS] ?: DownloadOptions.Default.maxConnectionAttempts,
-            requestTimeout = prefs[Keys.REQUEST_TIMEOUT]?.toDouble() ?: DownloadOptions.Default.requestTimeout,
-            iphoneSupport = prefs[Keys.IPHONE_SUPPORT] ?: DownloadOptions.Default.iphoneSupport,
-            enableResume = prefs[Keys.ENABLE_RESUME] ?: DownloadOptions.Default.enableResume,
-            resumePrefix = prefs[Keys.RESUME_PREFIX] ?: DownloadOptions.Default.resumePrefix,
-            checkResumeBbd = prefs[Keys.CHECK_RESUME_BBD] ?: DownloadOptions.Default.checkResumeBbd,
-            slide = prefs[Keys.SLIDE] ?: DownloadOptions.Default.slide,
-        )
+    val options: Flow<DownloadOptions> = flow {
+        migrateDefaultFilenamePattern()
+        emitAll(context.optionsDataStore.data.map { prefs ->
+            DownloadOptions(
+                quiet = prefs[Keys.QUIET] ?: DownloadOptions.Default.quiet,
+                downloadPictures = prefs[Keys.DOWNLOAD_PICTURES] ?: DownloadOptions.Default.downloadPictures,
+                downloadVideos = prefs[Keys.DOWNLOAD_VIDEOS] ?: DownloadOptions.Default.downloadVideos,
+                downloadVideoThumbnails = prefs[Keys.DOWNLOAD_VIDEO_THUMBNAILS] ?: DownloadOptions.Default.downloadVideoThumbnails,
+                downloadGeotags = prefs[Keys.DOWNLOAD_GEOTAGS] ?: DownloadOptions.Default.downloadGeotags,
+                downloadComments = prefs[Keys.DOWNLOAD_COMMENTS] ?: DownloadOptions.Default.downloadComments,
+                saveMetadata = prefs[Keys.SAVE_METADATA] ?: DownloadOptions.Default.saveMetadata,
+                compressJson = prefs[Keys.COMPRESS_JSON] ?: DownloadOptions.Default.compressJson,
+                saveCaptions = prefs[Keys.SAVE_CAPTIONS] ?: DownloadOptions.Default.saveCaptions,
+                postMetadataTxtPattern = prefs[Keys.POST_METADATA_TXT_PATTERN] ?: DownloadOptions.Default.postMetadataTxtPattern,
+                storyitemMetadataTxtPattern = prefs[Keys.STORYITEM_METADATA_TXT_PATTERN] ?: DownloadOptions.Default.storyitemMetadataTxtPattern,
+                profilePic = prefs[Keys.PROFILE_PIC] ?: DownloadOptions.Default.profilePic,
+                posts = prefs[Keys.POSTS] ?: DownloadOptions.Default.posts,
+                tagged = prefs[Keys.TAGGED] ?: DownloadOptions.Default.tagged,
+                igtv = prefs[Keys.IGTV] ?: DownloadOptions.Default.igtv,
+                highlights = prefs[Keys.HIGHLIGHTS] ?: DownloadOptions.Default.highlights,
+                stories = prefs[Keys.STORIES] ?: DownloadOptions.Default.stories,
+                reels = prefs[Keys.REELS] ?: DownloadOptions.Default.reels,
+                fastUpdate = prefs[Keys.FAST_UPDATE] ?: DownloadOptions.Default.fastUpdate,
+                maxCount = prefs[Keys.MAX_COUNT]?.takeIf { it > 0 },
+                postFilter = prefs[Keys.POST_FILTER] ?: DownloadOptions.Default.postFilter,
+                storyitemFilter = prefs[Keys.STORYITEM_FILTER] ?: DownloadOptions.Default.storyitemFilter,
+                dirnamePattern = prefs[Keys.DIRNAME_PATTERN] ?: DownloadOptions.Default.dirnamePattern,
+                filenamePattern = prefs[Keys.FILENAME_PATTERN] ?: DownloadOptions.Default.filenamePattern,
+                titlePattern = prefs[Keys.TITLE_PATTERN] ?: DownloadOptions.Default.titlePattern,
+                sanitizePaths = prefs[Keys.SANITIZE_PATHS] ?: DownloadOptions.Default.sanitizePaths,
+                userAgent = prefs[Keys.USER_AGENT] ?: DownloadOptions.Default.userAgent,
+                maxConnectionAttempts = prefs[Keys.MAX_CONNECTION_ATTEMPTS] ?: DownloadOptions.Default.maxConnectionAttempts,
+                requestTimeout = prefs[Keys.REQUEST_TIMEOUT]?.toDouble() ?: DownloadOptions.Default.requestTimeout,
+                iphoneSupport = prefs[Keys.IPHONE_SUPPORT] ?: DownloadOptions.Default.iphoneSupport,
+                enableResume = prefs[Keys.ENABLE_RESUME] ?: DownloadOptions.Default.enableResume,
+                resumePrefix = prefs[Keys.RESUME_PREFIX] ?: DownloadOptions.Default.resumePrefix,
+                checkResumeBbd = prefs[Keys.CHECK_RESUME_BBD] ?: DownloadOptions.Default.checkResumeBbd,
+                slide = prefs[Keys.SLIDE] ?: DownloadOptions.Default.slide,
+            )
+        })
+    }
+
+    private suspend fun migrateDefaultFilenamePattern() {
+        val prefs = context.optionsDataStore.data.first()
+        if (prefs[Keys.FILENAME_PATTERN_DEFAULT_MIGRATED] == true) return
+
+        context.optionsDataStore.edit { currentPrefs ->
+            if (currentPrefs[Keys.FILENAME_PATTERN_DEFAULT_MIGRATED] == true) return@edit
+            if (currentPrefs[Keys.FILENAME_PATTERN].isNullOrBlank()) {
+                currentPrefs[Keys.FILENAME_PATTERN] = DownloadOptions.Default.filenamePattern
+            }
+            currentPrefs[Keys.FILENAME_PATTERN_DEFAULT_MIGRATED] = true
+        }
     }
 
     suspend fun save(options: DownloadOptions) {
@@ -123,6 +142,7 @@ class OptionsStore(private val context: Context) {
         val STORYITEM_FILTER = stringPreferencesKey("storyitem_filter")
         val DIRNAME_PATTERN = stringPreferencesKey("dirname_pattern")
         val FILENAME_PATTERN = stringPreferencesKey("filename_pattern")
+        val FILENAME_PATTERN_DEFAULT_MIGRATED = booleanPreferencesKey("filename_pattern_default_migrated")
         val TITLE_PATTERN = stringPreferencesKey("title_pattern")
         val SANITIZE_PATHS = booleanPreferencesKey("sanitize_paths")
         val USER_AGENT = stringPreferencesKey("user_agent")

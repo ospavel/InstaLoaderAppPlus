@@ -8,8 +8,11 @@ import com.alphacorp.instaloader.data.model.DownloadOptions
 import com.alphacorp.instaloader.data.repository.DownloadRepository
 import com.alphacorp.instaloader.util.StorageAccess
 import java.io.File
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -18,11 +21,11 @@ class SettingsViewModel(
     private val downloadRepository: DownloadRepository,
 ) : ViewModel() {
 
-    val options: StateFlow<DownloadOptions> = downloadRepository.options.stateIn(
-        scope = viewModelScope,
-        started = SharingStarted.WhileSubscribed(5_000),
-        initialValue = DownloadOptions.Default,
-    )
+    private val _options = MutableStateFlow(DownloadOptions.Default)
+    val options: StateFlow<DownloadOptions> = _options.asStateFlow()
+    private var storedOptionsLoaded = false
+    private var resetRequestedBeforeLoad = false
+    private val pendingOptionTransforms = mutableListOf<(DownloadOptions) -> DownloadOptions>()
 
     val downloadLocation: StateFlow<DownloadLocationState> = downloadRepository.downloadDirectory
         .map(downloadRepository::downloadLocationState)
@@ -37,15 +40,50 @@ class SettingsViewModel(
             ),
         )
 
-    fun updateOptions(transform: (DownloadOptions) -> DownloadOptions) {
+    init {
         viewModelScope.launch {
-            downloadRepository.saveOptions(transform(options.value))
+            val storedOptions = downloadRepository.options.first()
+            val shouldPersistPendingChanges = resetRequestedBeforeLoad || pendingOptionTransforms.isNotEmpty()
+            var resolvedOptions = if (resetRequestedBeforeLoad) {
+                DownloadOptions.Default
+            } else {
+                storedOptions
+            }
+            pendingOptionTransforms.forEach { transform ->
+                resolvedOptions = transform(resolvedOptions)
+            }
+            pendingOptionTransforms.clear()
+            resetRequestedBeforeLoad = false
+            storedOptionsLoaded = true
+            _options.value = resolvedOptions
+
+            if (shouldPersistPendingChanges) {
+                downloadRepository.saveOptions(resolvedOptions)
+            }
+        }
+    }
+
+    fun updateOptions(transform: (DownloadOptions) -> DownloadOptions) {
+        val updatedOptions = transform(_options.value)
+        _options.value = updatedOptions
+        if (storedOptionsLoaded) {
+            viewModelScope.launch {
+                downloadRepository.saveOptions(updatedOptions)
+            }
+        } else {
+            pendingOptionTransforms += transform
         }
     }
 
     fun resetOptions() {
-        viewModelScope.launch {
-            downloadRepository.resetOptions()
+        _options.value = DownloadOptions.Default
+        if (storedOptionsLoaded) {
+            viewModelScope.launch {
+                downloadRepository.resetOptions()
+            }
+        } else {
+            resetRequestedBeforeLoad = true
+            pendingOptionTransforms.clear()
         }
     }
 

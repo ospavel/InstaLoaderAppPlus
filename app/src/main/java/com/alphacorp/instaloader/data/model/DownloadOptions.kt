@@ -24,7 +24,7 @@ data class DownloadOptions(
     val postFilter: String = "",
     val storyitemFilter: String = "",
     val dirnamePattern: String = "",
-    val filenamePattern: String = "",
+    val filenamePattern: String = "{profile}_{filename}",
     val titlePattern: String = "",
     val sanitizePaths: Boolean = false,
     val userAgent: String = "",
