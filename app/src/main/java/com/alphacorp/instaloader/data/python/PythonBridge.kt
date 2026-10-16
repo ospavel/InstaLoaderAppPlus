@@ -52,7 +52,8 @@ class PythonBridge {
     }
 
     private fun ((DownloadProgress) -> Unit).toPythonCallback(): ProgressCallback =
-        ProgressCallback { phase, total, completed, failed, skipped, remaining, current, message ->
+        ProgressCallback { phase, total, completed, failed, skipped, remaining, current, message,
+                           transferFile, transferCompletedBytes, transferTotalBytes ->
             this(
                 DownloadProgress(
                     phase = phase,
@@ -63,6 +64,9 @@ class PythonBridge {
                     remaining = remaining.toIntOrNull(),
                     current = current,
                     message = message,
+                    transferFile = transferFile,
+                    transferCompletedBytes = transferCompletedBytes.toLongOrNull(),
+                    transferTotalBytes = transferTotalBytes.toLongOrNull(),
                 ),
             )
         }

@@ -132,14 +132,14 @@ fun HomeHeroHeader(
                 color = Color.White.copy(alpha = 0.92f),
                 lineHeight = MaterialTheme.typography.bodyMedium.lineHeight,
             )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                FeaturePill(text = stringResource(R.string.home_feature_profiles))
-                FeaturePill(text = stringResource(R.string.home_feature_posts))
-                FeaturePill(text = stringResource(R.string.home_feature_hashtags))
-            }
+//
+//            Spacer(modifier = Modifier.height(16.dp))
+//
+//            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+//                FeaturePill(text = stringResource(R.string.home_feature_profiles))
+//                FeaturePill(text = stringResource(R.string.home_feature_posts))
+//                FeaturePill(text = stringResource(R.string.home_feature_hashtags))
+//            }
         }
     }
 }

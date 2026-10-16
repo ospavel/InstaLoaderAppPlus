@@ -79,6 +79,9 @@ def download_with_options(
             _stringify(payload.get("remaining")),
             str(payload.get("current") or ""),
             str(payload.get("message") or ""),
+            str(payload.get("transfer_file") or ""),
+            _stringify(payload.get("transfer_completed_bytes")),
+            _stringify(payload.get("transfer_total_bytes")),
         )
 
     _download_with_options(

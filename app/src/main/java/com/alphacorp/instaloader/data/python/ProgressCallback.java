@@ -10,6 +10,9 @@ public interface ProgressCallback {
             String skipped,
             String remaining,
             String current,
-            String message
+            String message,
+            String transferFile,
+            String transferCompletedBytes,
+            String transferTotalBytes
     );
 }

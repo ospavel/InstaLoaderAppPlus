@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import re
+import time
 from typing import Any, Callable, Dict, Optional
 
 import instaloader
@@ -37,6 +38,66 @@ def _check_cancelled(callback: Optional[Callable]) -> None:
         raise InterruptedError("Download cancelled")
 
 
+def _install_transfer_progress(
+    loader: instaloader.Instaloader,
+    callback: Optional[Callable],
+    progress_state: Dict[str, Any],
+) -> None:
+    if callback is None:
+        return
+
+    original_write_raw = loader.context.write_raw
+
+    def write_raw_with_progress(response: Any, filename: str) -> None:
+        if not hasattr(response, "raw") or not hasattr(response, "headers"):
+            original_write_raw(response, filename)
+            return
+
+        try:
+            transfer_total = int(response.headers.get("Content-Length", ""))
+        except (TypeError, ValueError):
+            transfer_total = 0
+        if transfer_total <= 0:
+            transfer_total = None
+
+        transfer_file = os.path.basename(filename)
+        loader.context.log(filename, end=" ", flush=True)
+        transferred = 0
+        last_reported_at = 0.0
+        with open(filename + ".temp", "wb") as output_file:
+            while True:
+                chunk = response.raw.read(64 * 1024)
+                if not chunk:
+                    break
+                output_file.write(chunk)
+                transferred += len(chunk)
+                now = time.monotonic()
+                if now - last_reported_at >= 0.2:
+                    payload = dict(progress_state)
+                    payload.update(
+                        phase="transferring",
+                        message=f"Downloading {transfer_file}",
+                        transfer_file=transfer_file,
+                        transfer_completed_bytes=transferred,
+                        transfer_total_bytes=transfer_total,
+                    )
+                    callback(payload)
+                    last_reported_at = now
+
+        payload = dict(progress_state)
+        payload.update(
+            phase="transferring",
+            message=f"Downloading {transfer_file}",
+            transfer_file=transfer_file,
+            transfer_completed_bytes=transferred,
+            transfer_total_bytes=transfer_total,
+        )
+        callback(payload)
+        os.replace(filename + ".temp", filename)
+
+    loader.context.write_raw = write_raw_with_progress
+
+
 def get_post_count(username: str, options: Dict[str, Any]) -> int:
     loader = build_instaloader(options)
     apply_session(
@@ -56,6 +117,17 @@ def download_with_options(
 ) -> None:
     _reset_cancel()
     loader = build_instaloader(options)
+
+    progress_state: Dict[str, Any] = {}
+
+    def track_progress(payload: Dict[str, Any]) -> None:
+        progress_state.update(payload)
+        if progress_callback is not None:
+            progress_callback(payload)
+
+    callback = track_progress if progress_callback is not None else None
+    _install_transfer_progress(loader, callback, progress_state)
+
     apply_session(
         loader,
         options.get("session_username"),
@@ -75,28 +147,28 @@ def download_with_options(
         raise ValueError("Target value is required")
 
     if target_type == "profile":
-        _download_profile(loader, target_value, options, base_dir, progress_callback)
+        _download_profile(loader, target_value, options, base_dir, callback)
     elif target_type in {"post", "reel", "reels"}:
         shortcode = _normalize_shortcode(target_value)
-        _download_single_post(loader, shortcode, base_dir, progress_callback)
+        output_dir = options.get("dirname_pattern") or base_dir
+        _download_single_post(loader, shortcode, output_dir, callback)
     elif target_type == "hashtag":
-        _download_hashtag(loader, target_value, options, base_dir, progress_callback)
+        _download_hashtag(loader, target_value, options, base_dir, callback)
     else:
         raise ValueError(f"Unsupported target type: {target_type}")
 
-    merge_progress(progress_callback, phase="finished", message="Download finished")
+    merge_progress(callback, phase="finished", message="Download finished")
 
 
 def _download_single_post(
     loader: instaloader.Instaloader,
     shortcode: str,
-    base_dir: str,
+    output_dir: str,
     callback: Optional[Callable],
 ) -> None:
     merge_progress(callback, phase="starting", total=1, message="Downloading post")
     _check_cancelled(callback)
-    loader.dirname_pattern = os.path.join(base_dir, "posts")
-    os.makedirs(loader.dirname_pattern, exist_ok=True)
+    loader.dirname_pattern = output_dir
     post = Post.from_shortcode(loader.context, shortcode)
     try:
         loader.download_post(post, target="")

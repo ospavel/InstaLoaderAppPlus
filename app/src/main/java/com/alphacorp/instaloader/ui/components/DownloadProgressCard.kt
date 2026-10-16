@@ -127,7 +127,11 @@ fun DownloadProgressCard(
 
                 determinateFraction?.let { fraction ->
                     Text(
-                        text = "${(fraction * 100).toInt()}%",
+                        text = if (progress.transferProgressFraction != null) {
+                            "File ${(fraction * 100).toInt()}%"
+                        } else {
+                            "${(fraction * 100).toInt()}%"
+                        },
                         style = MaterialTheme.typography.labelLarge,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.primary,
@@ -215,7 +219,7 @@ fun DownloadProgressCard(
                 }
             }
 
-            if (progress.current.isNotBlank()) {
+            if (progress.current.isNotBlank() || progress.transferFile.isNotBlank()) {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -225,20 +229,46 @@ fun DownloadProgressCard(
                     verticalArrangement = Arrangement.spacedBy(2.dp),
                 ) {
                     Text(
-                        text = "Current item",
+                        text = if (progress.transferFile.isNotBlank()) "Current file" else "Current item",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     Text(
-                        text = progress.current,
+                        text = progress.transferFile.ifBlank { progress.current },
                         style = MaterialTheme.typography.bodySmall,
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis,
                     )
+                    if (progress.transferFile.isNotBlank()) {
+                        val transferred = progress.transferCompletedBytes ?: 0L
+                        val totalBytes = progress.transferTotalBytes
+                        Text(
+                            text = if (totalBytes != null) {
+                                "${formatByteCount(transferred)} / ${formatByteCount(totalBytes)}"
+                            } else {
+                                "${formatByteCount(transferred)} downloaded"
+                            },
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                 }
             }
         }
     }
+}
+
+private fun formatByteCount(byteCount: Long): String {
+    if (byteCount < 1024L) return "$byteCount B"
+
+    var value = byteCount.toDouble()
+    val units = listOf("KB", "MB", "GB")
+    var unitIndex = 0
+    while (value >= 1024.0 && unitIndex < units.lastIndex) {
+        value /= 1024.0
+        unitIndex += 1
+    }
+    return "%.1f %s".format(value, units[unitIndex])
 }
 
 @Composable

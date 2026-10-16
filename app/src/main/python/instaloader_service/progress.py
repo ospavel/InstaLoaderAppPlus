@@ -21,6 +21,9 @@ def merge_progress(
     skipped: int = 0,
     current: Optional[str] = None,
     message: Optional[str] = None,
+    transfer_file: Optional[str] = None,
+    transfer_completed_bytes: Optional[int] = None,
+    transfer_total_bytes: Optional[int] = None,
 ) -> None:
     remaining = None
     if total is not None:
@@ -35,4 +38,7 @@ def merge_progress(
         remaining=remaining,
         current=current or "",
         message=message or "",
+        transfer_file=transfer_file or "",
+        transfer_completed_bytes=transfer_completed_bytes,
+        transfer_total_bytes=transfer_total_bytes,
     )
