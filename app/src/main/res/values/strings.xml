@@ -5,6 +5,7 @@
     <string name="home_tagline">Instagram media downloader</string>
     <string name="home_input_title">What do you want to download?</string>
     <string name="home_input_hint">Paste a link or enter a username or hashtag</string>
+    <string name="clipboard_empty">Clipboard is empty.</string>
     <string name="home_feature_profiles">Profiles</string>
     <string name="home_feature_posts">Posts</string>
     <string name="home_feature_hashtags">Hashtags</string>

@@ -13,17 +13,22 @@ data class DownloadProgress(
     val transferFile: String = "",
     val transferCompletedBytes: Long? = null,
     val transferTotalBytes: Long? = null,
+    val downloadedFilePath: String = "",
 ) {
     val isActive: Boolean
         get() = phase !in setOf("idle", "finished", "cancelled", "error")
 
     val progressFraction: Float?
         get() {
-            if (transferFile.isNotBlank()) return transferProgressFraction
-            transferProgressFraction?.let { return it }
             val totalCount = total ?: return null
             if (totalCount <= 0) return null
-            return (completed + failed + skipped).toFloat() / totalCount.toFloat()
+            val inProgressItem = if (transferFile.isNotBlank()) {
+                transferProgressFraction ?: 0f
+            } else {
+                0f
+            }
+            return ((completed + failed + skipped + inProgressItem) / totalCount.toFloat())
+                .coerceIn(0f, 1f)
         }
 
     val transferProgressFraction: Float?

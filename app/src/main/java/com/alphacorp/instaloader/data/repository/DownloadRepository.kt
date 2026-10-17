@@ -50,6 +50,7 @@ class DownloadRepository(
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val customPathRef = AtomicReference<String?>(null)
+    private val savedMediaHistory = context.getSharedPreferences(SAVED_MEDIA_HISTORY, Context.MODE_PRIVATE)
 
     private val _progress = MutableStateFlow(DownloadProgress())
     val progress: Flow<DownloadProgress> = _progress.asStateFlow()
@@ -137,8 +138,18 @@ class DownloadRepository(
                 .filter { file ->
                     file.isFile && file.extension.lowercase(Locale.ROOT) in MEDIA_FILE_EXTENSIONS
                 }
-                .sortedByDescending { file -> file.lastModified() }
                 .toList()
+                .let { files ->
+                    val downloadedAt = files.mapNotNull { file ->
+                        val path = file.absolutePath
+                        if (savedMediaHistory.contains(path)) {
+                            path to savedMediaHistory.getLong(path, file.lastModified())
+                        } else {
+                            null
+                        }
+                    }.toMap()
+                    SavedMediaOrdering.newestFirst(files, downloadedAt)
+                }
         }.getOrDefault(emptyList())
     }
 
@@ -165,6 +176,7 @@ class DownloadRepository(
                 baseDir = downloadBaseDir().absolutePath,
                 session = session,
                 onProgress = { update ->
+                    recordSavedMediaDownload(update.downloadedFilePath)
                     _progress.value = update
                 },
             )
@@ -189,5 +201,18 @@ class DownloadRepository(
 
     fun updateProgress(progress: DownloadProgress) {
         _progress.value = progress
+    }
+
+    private fun recordSavedMediaDownload(path: String) {
+        if (path.isBlank()) return
+        val file = File(path)
+        if (file.extension.lowercase(Locale.ROOT) !in MEDIA_FILE_EXTENSIONS) return
+        savedMediaHistory.edit()
+            .putLong(file.absolutePath, System.currentTimeMillis())
+            .apply()
+    }
+
+    private companion object {
+        const val SAVED_MEDIA_HISTORY = "saved_media_history"
     }
 }

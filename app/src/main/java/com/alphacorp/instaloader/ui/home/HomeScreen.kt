@@ -1,6 +1,7 @@
 package com.alphacorp.instaloader.ui.home
 
 import android.content.ActivityNotFoundException
+import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.webkit.MimeTypeMap
@@ -26,6 +27,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.core.content.FileProvider
 import com.alphacorp.instaloader.ui.components.DownloadProgressCard
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import java.io.File
 import java.util.Locale
@@ -34,6 +36,7 @@ import java.util.Locale
 @Composable
 fun HomeScreen(
     viewModel: HomeViewModel,
+    clipboardReadEvents: StateFlow<ClipboardReadEvent>,
     onOpenSettings: () -> Unit,
     onOpenLogin: () -> Unit,
 ) {
@@ -41,6 +44,13 @@ fun HomeScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     val coroutineScope = rememberCoroutineScope()
     val context = LocalContext.current
+    val clipboardReadEvent by clipboardReadEvents.collectAsStateWithLifecycle()
+
+    LaunchedEffect(clipboardReadEvent.sequence) {
+        if (clipboardReadEvent.sequence > 0) {
+            clipboardReadEvent.text?.let(viewModel::pasteInstagramUrlFromClipboard)
+        }
+    }
 
     LaunchedEffect(uiState.errorMessage, uiState.successMessage, uiState.progress.phase) {
         val terminalPhase = uiState.progress.phase in setOf("finished", "error", "cancelled")
@@ -82,9 +92,15 @@ fun HomeScreen(
                     enabled = !uiState.isDownloading,
                     onInputChanged = viewModel::onInputChanged,
                     onPaste = {
-                        val text = pasteFromClipboard(context)
-                        if (text.isNotBlank()) {
-                            viewModel.pasteInput(text)
+                        val clipboardText = readClipboardText(context)
+                        if (clipboardText.isNullOrEmpty()) {
+                            coroutineScope.launch {
+                                snackbarHostState.showSnackbar(
+                                    context.getString(com.alphacorp.instaloader.R.string.clipboard_empty),
+                                )
+                            }
+                        } else {
+                            viewModel.pasteInputFromClipboard(clipboardText)
                         }
                     },
                 )
@@ -106,6 +122,7 @@ fun HomeScreen(
 
             SavedFilesSection(
                 files = uiState.savedFiles,
+                refreshId = uiState.savedFilesRefreshId,
                 onFileClick = { file ->
                     if (!openSavedFile(context, file)) {
                         coroutineScope.launch {
@@ -118,6 +135,15 @@ fun HomeScreen(
         }
     }
 }
+
+private fun readClipboardText(context: Context): String? = runCatching {
+    val clipboardManager = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
+    clipboardManager?.primaryClip
+        ?.takeIf { clip -> clip.itemCount > 0 }
+        ?.getItemAt(0)
+        ?.coerceToText(context)
+        ?.toString()
+}.getOrNull()
 
 private fun openSavedFile(context: Context, file: File): Boolean = try {
     val uri = FileProvider.getUriForFile(

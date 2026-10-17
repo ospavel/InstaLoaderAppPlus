@@ -8,12 +8,14 @@ import androidx.navigation.compose.rememberNavController
 import com.alphacorp.instaloader.data.repository.DownloadRepository
 import com.alphacorp.instaloader.data.repository.SessionRepository
 import com.alphacorp.instaloader.domain.usecase.ParseInstagramInputUseCase
+import com.alphacorp.instaloader.ui.home.ClipboardReadEvent
 import com.alphacorp.instaloader.ui.home.HomeScreen
 import com.alphacorp.instaloader.ui.home.HomeViewModel
 import com.alphacorp.instaloader.ui.login.LoginScreen
 import com.alphacorp.instaloader.ui.login.LoginViewModel
 import com.alphacorp.instaloader.ui.settings.SettingsScreen
 import com.alphacorp.instaloader.ui.settings.SettingsViewModel
+import kotlinx.coroutines.flow.StateFlow
 
 object Routes {
     const val HOME = "home"
@@ -26,6 +28,7 @@ fun AppNavHost(
     downloadRepository: DownloadRepository,
     sessionRepository: SessionRepository,
     parseInput: ParseInstagramInputUseCase,
+    clipboardReadEvents: StateFlow<ClipboardReadEvent>,
     onStartDownload: (String) -> Unit,
     onCancelDownload: () -> Unit,
 ) {
@@ -43,6 +46,7 @@ fun AppNavHost(
             )
             HomeScreen(
                 viewModel = viewModel,
+                clipboardReadEvents = clipboardReadEvents,
                 onOpenSettings = { navController.navigate(Routes.SETTINGS) },
                 onOpenLogin = { navController.navigate(Routes.LOGIN) },
             )

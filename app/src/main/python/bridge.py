@@ -82,6 +82,7 @@ def download_with_options(
             str(payload.get("transfer_file") or ""),
             _stringify(payload.get("transfer_completed_bytes")),
             _stringify(payload.get("transfer_total_bytes")),
+            str(payload.get("downloaded_file_path") or ""),
         )
 
     _download_with_options(

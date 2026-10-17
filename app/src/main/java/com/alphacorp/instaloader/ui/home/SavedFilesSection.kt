@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
@@ -25,6 +26,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
 import androidx.compose.ui.Alignment
@@ -47,9 +49,17 @@ private const val THUMBNAIL_SIZE_PX = 320
 @Composable
 fun SavedFilesSection(
     files: List<File>,
+    refreshId: Long,
     onFileClick: (File) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val listState = rememberLazyListState()
+    LaunchedEffect(refreshId) {
+        if (files.isNotEmpty()) {
+            listState.animateScrollToItem(0)
+        }
+    }
+
     Column(modifier = modifier.fillMaxWidth()) {
         Row(
             modifier = Modifier
@@ -86,6 +96,7 @@ fun SavedFilesSection(
             }
         } else {
             LazyColumn(
+                state = listState,
                 modifier = Modifier.weight(1f),
                 contentPadding = PaddingValues(start = 20.dp, end = 20.dp, bottom = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(6.dp),
@@ -132,7 +143,7 @@ private fun SavedFileRow(
                 "Photo"
             }
             Text(
-                text = "$mediaType · ${formatFileSize(file.length())}",
+                text = "$mediaType · ${FileSizeFormatter.format(file.length())}",
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1,
@@ -225,17 +236,4 @@ private fun createVideoThumbnail(file: File): Bitmap? {
     } finally {
         retriever.release()
     }
-}
-
-private fun formatFileSize(byteCount: Long): String {
-    if (byteCount < 1024L) return "$byteCount B"
-
-    var value = byteCount.toDouble()
-    val units = listOf("KB", "MB", "GB", "TB")
-    var unitIndex = 0
-    while (value >= 1024.0 && unitIndex < units.lastIndex) {
-        value /= 1024.0
-        unitIndex += 1
-    }
-    return "%.1f %s".format(Locale.getDefault(), value, units[unitIndex])
 }

@@ -75,11 +75,7 @@ private fun DownloadProgressIndicator(
             )
             if (fraction != null) {
                 Text(
-                    text = if (progress.transferProgressFraction != null) {
-                        "File ${(fraction * 100).toInt()}%"
-                    } else {
-                        "${(fraction * 100).toInt()}%"
-                    },
+                    text = "${(fraction * 100).toInt()}% total",
                     modifier = Modifier.padding(start = 12.dp),
                     style = MaterialTheme.typography.labelMedium,
                     fontWeight = FontWeight.SemiBold,
@@ -112,15 +108,27 @@ private fun DownloadProgressIndicator(
         if (progress.transferFile.isNotBlank()) {
             val transferred = progress.transferCompletedBytes ?: 0L
             val totalBytes = progress.transferTotalBytes
+            val fileFraction = progress.transferProgressFraction
             Text(
-                text = if (totalBytes != null) {
-                    "${formatByteCount(transferred)} / ${formatByteCount(totalBytes)}"
+                text = if (totalBytes != null && fileFraction != null) {
+                    "File ${(fileFraction * 100).toInt()}% · ${formatByteCount(transferred)} / ${formatByteCount(totalBytes)}"
                 } else {
                     "${formatByteCount(transferred)} downloaded"
                 },
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+            if (fileFraction != null) {
+                LinearProgressIndicator(
+                    progress = { fileFraction },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(4.dp)
+                        .clip(RoundedCornerShape(50)),
+                    color = MaterialTheme.colorScheme.secondary,
+                    trackColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+                )
+            }
         }
     }
 }

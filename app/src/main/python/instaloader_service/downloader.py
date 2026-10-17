@@ -94,6 +94,15 @@ def _install_transfer_progress(
         )
         callback(payload)
         os.replace(filename + ".temp", filename)
+        completed_payload = dict(progress_state)
+        completed_payload.update(
+            phase="transferring",
+            transfer_file=transfer_file,
+            transfer_completed_bytes=transferred,
+            transfer_total_bytes=transfer_total,
+            downloaded_file_path=os.path.abspath(filename),
+        )
+        callback(completed_payload)
 
     loader.context.write_raw = write_raw_with_progress
 
@@ -122,6 +131,7 @@ def download_with_options(
 
     def track_progress(payload: Dict[str, Any]) -> None:
         progress_state.update(payload)
+        progress_state.pop("downloaded_file_path", None)
         if progress_callback is not None:
             progress_callback(payload)
 

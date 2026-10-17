@@ -21,6 +21,7 @@ data class HomeUiState(
     val targetLabel: String = "",
     val progress: DownloadProgress = DownloadProgress(),
     val savedFiles: List<File> = emptyList(),
+    val savedFilesRefreshId: Long = 0,
     val isDownloading: Boolean = false,
     val errorMessage: String? = null,
     val successMessage: String? = null,
@@ -66,8 +67,10 @@ class HomeViewModel(
     }
 
     private suspend fun refreshSavedFiles() {
+        val files = downloadRepository.savedMediaFiles()
         _uiState.value = _uiState.value.copy(
-            savedFiles = downloadRepository.savedMediaFiles(),
+            savedFiles = files,
+            savedFilesRefreshId = _uiState.value.savedFilesRefreshId + 1,
         )
     }
 
@@ -81,7 +84,17 @@ class HomeViewModel(
         )
     }
 
-    fun pasteInput(value: String) {
+    fun pasteInstagramUrlFromClipboard(value: String): Boolean {
+        val clipboardText = value.trim()
+        if (_uiState.value.isDownloading || !parseInput.isInstagramUrl(clipboardText)) return false
+        if (_uiState.value.input != clipboardText) {
+            onInputChanged(clipboardText)
+        }
+        return true
+    }
+
+    fun pasteInputFromClipboard(value: String) {
+        if (_uiState.value.isDownloading) return
         onInputChanged(value)
     }
 

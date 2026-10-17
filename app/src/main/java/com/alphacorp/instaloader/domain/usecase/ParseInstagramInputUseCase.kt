@@ -2,6 +2,8 @@ package com.alphacorp.instaloader.domain.usecase
 
 import com.alphacorp.instaloader.data.model.DownloadError
 import com.alphacorp.instaloader.data.model.DownloadTarget
+import java.net.URI
+import java.util.Locale
 
 class ParseInstagramInputUseCase {
 
@@ -40,6 +42,19 @@ class ParseInstagramInputUseCase {
             .getOrDefault("Unknown")
     }
 
+    fun isInstagramUrl(rawInput: String): Boolean {
+        val input = rawInput.trim()
+        if (input.isBlank()) return false
+
+        val candidate = if (URI_SCHEME_PATTERN.containsMatchIn(input)) input else "https://$input"
+        val uri = runCatching { URI(candidate) }.getOrNull() ?: return false
+        val scheme = uri.scheme?.lowercase(Locale.ROOT)
+        val host = uri.host?.lowercase(Locale.ROOT)
+        if (scheme !in SUPPORTED_URL_SCHEMES || host !in INSTAGRAM_HOSTS) return false
+
+        return runCatching { invoke(input) }.isSuccess
+    }
+
     private fun extractShortcode(url: String): String? {
         val patterns = listOf(
             Regex("instagram\\.com/p/([^/?#]+)", RegexOption.IGNORE_CASE),
@@ -63,6 +78,9 @@ class ParseInstagramInputUseCase {
     }
 
     companion object {
+        private val URI_SCHEME_PATTERN = Regex("^[A-Za-z][A-Za-z0-9+.-]*://")
+        private val SUPPORTED_URL_SCHEMES = setOf("http", "https")
+        private val INSTAGRAM_HOSTS = setOf("instagram.com", "www.instagram.com", "m.instagram.com")
         private val USERNAME_PATTERN = Regex("^[A-Za-z0-9._]+\$")
         private val PROFILE_URL_PATTERN = Regex(
             "instagram\\.com/([^/?#]+)/?(?:[?#].*)?\$",

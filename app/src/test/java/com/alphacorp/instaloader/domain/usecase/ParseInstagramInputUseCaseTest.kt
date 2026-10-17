@@ -44,6 +44,22 @@ class ParseInstagramInputUseCaseTest {
     }
 
     @Test
+    fun clipboardValidatorAcceptsInstagramPostUrl() {
+        assertTrue(useCase.isInstagramUrl("https://www.instagram.com/p/ABC123/?igsh=token"))
+    }
+
+    @Test
+    fun clipboardValidatorAcceptsInstagramLinksWithoutAScheme() {
+        assertTrue(useCase.isInstagramUrl("instagram.com/p/ABC123"))
+    }
+
+    @Test
+    fun clipboardValidatorRejectsLookalikeHostsAndPlainUsernames() {
+        assertTrue(!useCase.isInstagramUrl("https://instagram.com.example.org/p/ABC123"))
+        assertTrue(!useCase.isInstagramUrl("nasa"))
+    }
+
+    @Test
     fun hashtag_isParsed() {
         val target = useCase("#cats")
         assertTrue(target is DownloadTarget.Hashtag)

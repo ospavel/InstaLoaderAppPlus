@@ -13,6 +13,7 @@ public interface ProgressCallback {
             String message,
             String transferFile,
             String transferCompletedBytes,
-            String transferTotalBytes
+            String transferTotalBytes,
+            String downloadedFilePath
     );
 }

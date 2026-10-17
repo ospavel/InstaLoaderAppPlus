@@ -18,3 +18,5 @@ local.properties
 keystore.properties
 release/*.jks
 release/*.keystore
+/.superpowers/
+/.idea/
