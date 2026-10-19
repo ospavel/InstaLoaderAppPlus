@@ -218,7 +218,7 @@ private fun formatByteCount(byteCount: Long): String {
 
     var value = byteCount.toDouble()
     val units = listOf("KB", "MB", "GB", "TB")
-    var unitIndex = 0
+    var unitIndex = -1
     while (value >= 1024.0 && unitIndex < units.lastIndex) {
         value /= 1024.0
         unitIndex += 1

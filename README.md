@@ -14,7 +14,7 @@ Download profiles, posts, reels, and hashtags with [`instaloader`](https://githu
 
 ## Overview
 
-**InstaLoaderApp Plus** is a substantially reworked, actively maintained fork of [Azeem Idrisi's InstaLoaderApp](https://github.com/AzeemIdrisi/InstaLoaderApp). The Plus version keeps Instaloader 4.15.3 as its download engine and adds a redesigned interface, secure browser-based login, accurate transfer progress, and a built-in saved-file browser. It uses Jetpack Compose and Chaquopy, and runs downloads in a foreground service with notifications.
+**InstaLoaderApp Plus** is a **substantially** reworked, actively maintained fork of [Azeem Idrisi's InstaLoaderApp](https://github.com/AzeemIdrisi/InstaLoaderApp). The Plus version keeps Instaloader as its download engine and adds a redesigned interface, secure browser-based login, accurate transfer progress, and a built-in saved-file browser. It uses Jetpack Compose and Chaquopy, and runs downloads in a foreground service with notifications.
 
 Files save under **`Downloads/InstaLoaderApp/`** by default. Change the destination in **Settings → Storage** and customize folder and file names with Instaloader patterns in **Settings → Paths**. The default filename pattern is **`{profile}_{filename}`**.
 
@@ -119,6 +119,6 @@ JAVA_HOME=/path/to/jdk-17 ./gradlew assembleRelease
 
 ## Disclaimer
 
-Use responsibly. Download only content you may access. The developer is not responsible for misuse. During login, credentials are sent by the Instagram WebView to Instagram. The app does not send them to a developer server.
+Use responsibly. Download only content you may access. The developer is not responsible for misuse. During login, credentials are sent by the Instagram WebView to Instagram.
 
 Licensed under [GPL-3.0](LICENSE).

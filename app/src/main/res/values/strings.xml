@@ -47,8 +47,8 @@
     <string name="about_title">About</string>
     <string name="about_version">Version %1$s</string>
     <string name="about_description">Instagram media downloader powered by Instaloader.</string>
-    <string name="developer_credit">InstaLoaderApp © github.com/AzeemIdrisi, improved ospavel</string>
-    <string name="developer_github_url">https://github.com/ospavel/InstaLoaderApp</string>
+    <string name="developer_credit">InstaLoaderApp Plus</string>
+    <string name="developer_github_url">https://github.com/ospavel/InstaLoaderAppPlus</string>
     <string name="view_github">View on GitHub</string>
     <string name="download_channel_name">Downloads</string>
     <string name="notification_completed">Completed: %1$d</string>
